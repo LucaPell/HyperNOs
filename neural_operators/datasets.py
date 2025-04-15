@@ -57,13 +57,17 @@ def NO_load_data_model(
         "hh": HodgkinHuxley,
         "ord": OHaraRudy,
         ###
+        "afieti_homogeneous_neumann": AFIETI,
+        ###
         "crosstruss": CrossTruss,
         "stiffness_matrix": StiffnessMatrix,
     }
 
     # Define additional parameters for specific cases
     additional_params = {
-        "fhn": {"time": "_tf_100"},
+        "fhn": ["_tf_100"],
+        # "fhn_long": [ "time": "_tf_200" ],
+        "afieti_homogeneous_neumann": ["dataset_homogeneous_Neumann.mat"],
     }
 
     # Check if the example is valid
@@ -82,7 +86,7 @@ def NO_load_data_model(
 
     # Add additional kwargs for specific cases
     if which_example in additional_params:
-        args = [additional_params[which_example]["time"]] + args
+        args = [*additional_params[which_example]] + args
 
     # Add s to kwargs if it is specified
     if s is not None:
@@ -2399,7 +2403,7 @@ class OHaraRudy:
     ):
         assert training_samples <= 3000, "Training samples must be less than 3000"
         assert in_dist, "Out-of-distribution testing samples are not available"
-        s = 1
+        assert s == 1, "I want to test with all points"
 
         # List of all dataset fields
         self.fields = [
@@ -2463,7 +2467,7 @@ class OHaraRudy:
 
         #### Training data
         self.TrainDataPath = find_file(
-            "Training_dataset_ORd_n_3000_points_10080_tf_1000.mat", search_path
+            "Training_dataset_ORd_n_3000_points_5040_tf_500.mat", search_path
         )
         dict_train = MatReader_ord(self.fields, self.TrainDataPath)
 
@@ -2488,7 +2492,7 @@ class OHaraRudy:
 
         #### Validation data
         self.ValDataPath = find_file(
-            "Validation_dataset_ORd_n_375_points_10080_tf_1000.mat", search_path
+            "Validation_dataset_ORd_n_375_points_5040_tf_500.mat", search_path
         )
         dict_val = MatReader_ord(self.fields, self.ValDataPath)
 
@@ -2505,7 +2509,7 @@ class OHaraRudy:
 
         #### Validation data
         self.TestDataPath = find_file(
-            "Test_dataset_ORd_n_375_points_10080_tf_1000.mat", search_path
+            "Test_dataset_ORd_n_375_points_5040_tf_500.mat", search_path
         )
         dict_test = MatReader_ord(self.fields, self.TestDataPath)
 
@@ -2558,6 +2562,128 @@ class OHaraRudy:
             generator=g,
         )
         self.s = a_test.shape[1]
+
+    def get_grid(self, res):
+        return torch.linspace(0, 1, res).unsqueeze(-1)
+
+
+# ------------------------------------------------------------------------------
+# AF-IETI data
+# Training samples (16000)
+# Testing samples (2000)
+# Validation samples (2000)
+
+
+class AFIETI:
+    def __init__(
+        self,
+        filename: str,
+        network_properties: dict,
+        batch_size: int,
+        training_samples: int,
+        s=1,
+        in_dist=True,
+        search_path="/",
+    ):
+        assert training_samples <= 16000, "Training samples must be less than 3000"
+        assert in_dist, "Out-of-distribution testing samples are not available"
+        assert s == 1, "Sampling rate must be 1, no subsampling allowed in this example"
+
+        g = torch.Generator()
+
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        self.TrainDataPath = find_file(filename, search_path)
+        reader = h5py.File(self.TrainDataPath, "r")
+        input = torch.from_numpy(reader["input"][:]).type(torch.float32)
+        output = torch.from_numpy(reader["output"][:]).type(torch.float32)
+
+        # Training data
+        input_train, output_train = (
+            input[:training_samples, ::s],
+            output[:training_samples, ::s],
+        )
+
+        # Compute mean and std (for gaussian point-wise normalization)
+        self.input_normalizer = UnitGaussianNormalizer(input_train)
+        self.output_normalizer = UnitGaussianNormalizer(output_train)
+
+        # Normalize
+        # input_train = self.input_normalizer.encode(input_train)
+        # output_train = self.output_normalizer.encode(output_train)
+
+        # Validation data
+        input_val, output_val = (
+            input[training_samples : training_samples + 2000, ::s],
+            output[training_samples : training_samples + 2000, ::s],
+        )
+        # input_val = self.input_normalizer.encode(input_val)
+        # output_val = self.output_normalizer.encode(output_val)
+
+        # Test data
+        input_test, output_test = (
+            input[training_samples + 2000 :, ::s],
+            output[training_samples + 2000 :, ::s],
+        )
+        # input_test = self.input_normalizer.encode(input_test)
+        # output_test = self.output_normalizer.encode(output_test)
+
+        self.N_Fourier_F = network_properties["FourierF"]
+        if self.N_Fourier_F > 0:
+            grid = self.get_grid(input_test.shape[1])
+            FF = FourierFeatures1D(1, self.N_Fourier_F, grid.device)
+            ff_grid = FF(grid).unsqueeze(0)  # (1, n_y, 2*ff)
+
+            input_train = torch.cat(
+                (input_train, ff_grid.repeat(input_train.shape[0], 1, 1)), -1
+            )
+            input_val = torch.cat(
+                (input_val, ff_grid.repeat(input_val.shape[0], 1, 1)), -1
+            )
+            input_test = torch.cat(
+                (input_test, ff_grid.repeat(input_test.shape[0], 1, 1)), -1
+            )
+
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(input_train, output_train),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(input_val, output_val),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(input_test, output_test),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+
+        self.s_in = input_test.shape[1]
+        self.s_out = output_test.shape[1]
 
     def get_grid(self, res):
         return torch.linspace(0, 1, res).unsqueeze(-1)

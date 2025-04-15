@@ -39,7 +39,9 @@ import seaborn as sns
 import torch
 from beartype import beartype
 from cli.utilities_recover_model import get_tensors, test_fun, test_plot_samples
+from CNO import CNO
 from datasets import NO_load_data_model
+from FNO import FNO
 from jaxtyping import Float, jaxtyped
 from loss_fun import (
     H1relLoss,
@@ -50,9 +52,11 @@ from loss_fun import (
     LprelLoss_multiout,
     loss_selector,
 )
+from ResNet import ResidualNetwork
 from scipy.io import savemat
 from torch import Tensor
-from utilities import count_params
+from utilities import count_params, initialize_hyperparameters
+from wrappers import wrap_model
 
 #########################################
 # default values
@@ -88,19 +92,20 @@ def parse_arguments():
             "hh",
             "ord",
             "crosstruss",
+            "afieti_homogeneous_neumann",
         ],
         help="Select the example to run.",
     )
     parser.add_argument(
         "architecture",
         type=str,
-        choices=["fno", "cno"],
+        choices=["FNO", "CNO", "ResNet"],
         help="Select the architecture to use.",
     )
     parser.add_argument(
         "loss_fn_str",
         type=str,
-        choices=["l1", "l2", "h1", "l1_smooth"],
+        choices=["L1", "L2", "H1", "L1_smooth", "l2"],
         help="Select the relative loss function to use during the training process.",
     )
     parser.add_argument(
@@ -128,8 +133,8 @@ def parse_arguments():
 
     return {
         "example": args.example.lower(),
-        "architecture": args.architecture.upper(),
-        "loss_fn_str": args.loss_fn_str.upper(),
+        "architecture": args.architecture,
+        "loss_fn_str": args.loss_fn_str,
         "mode": args.mode,
         "in_dist": args.in_dist,
     }
@@ -150,8 +155,88 @@ files = os.listdir(folder)
 name_model = folder + [file for file in files if file.startswith("model_")][0]
 
 try:
-    model = torch.load(name_model, weights_only=False, map_location=device)
-    # torch.save(model.state_dict(), name_model + "_state_dict")
+    try:  # For models saved with torch.save(model.state_dict())
+        # Load the default hyperparameters for the FNO model
+        hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+            arc, which_example, mode_str
+        )
+
+        default_hyper_params = {
+            **hyperparams_train,
+            **hyperparams_arc,
+        }
+
+        example = NO_load_data_model(
+            which_example=which_example,
+            no_architecture={
+                "FourierF": default_hyper_params["FourierF"],
+                "retrain": default_hyper_params["retrain"],
+            },
+            batch_size=default_hyper_params["batch_size"],
+            training_samples=default_hyper_params["training_samples"],
+        )
+
+        match arc:
+            case "FNO":
+                model = FNO(
+                    default_hyper_params["problem_dim"],
+                    default_hyper_params["in_dim"],
+                    default_hyper_params["width"],
+                    default_hyper_params["out_dim"],
+                    default_hyper_params["n_layers"],
+                    default_hyper_params["modes"],
+                    default_hyper_params["fun_act"],
+                    default_hyper_params["weights_norm"],
+                    default_hyper_params["fno_arc"],
+                    default_hyper_params["RNN"],
+                    default_hyper_params["fft_norm"],
+                    default_hyper_params["padding"],
+                    device,
+                    default_hyper_params["retrain"],
+                )
+                model = wrap_model(model, which_example)
+
+            case "CNO":
+                model = CNO(
+                    problem_dim=default_hyper_params["problem_dim"],
+                    in_dim=default_hyper_params["in_dim"],
+                    out_dim=default_hyper_params["out_dim"],
+                    size=default_hyper_params["in_size"],
+                    N_layers=default_hyper_params["N_layers"],
+                    N_res=default_hyper_params["N_res"],
+                    N_res_neck=default_hyper_params["N_res_neck"],
+                    channel_multiplier=default_hyper_params["channel_multiplier"],
+                    kernel_size=default_hyper_params["kernel_size"],
+                    use_bn=default_hyper_params["bn"],
+                    device=device,
+                )
+                model = wrap_model(model, which_example)
+
+            case "ResNet":
+                model = ResidualNetwork(
+                    default_hyper_params["in_channels"],
+                    default_hyper_params["out_channels"],
+                    default_hyper_params["hidden_channels"],
+                    default_hyper_params["activation_str"],
+                    default_hyper_params["n_blocks"],
+                    device,
+                    layer_norm=default_hyper_params["layer_norm"],
+                    dropout_rate=default_hyper_params["dropout_rate"],
+                    zero_mean=default_hyper_params["zero_mean"],
+                    example=(
+                        example
+                        if default_hyper_params["internal_normalization"]
+                        else None
+                    ),
+                )
+
+        checkpoint = torch.load(name_model, weights_only=True, map_location=device)
+        model.load_state_dict(checkpoint["state_dict"])
+
+    except Exception:
+        # save with torch.save(model)
+        model = torch.load(name_model, weights_only=False, map_location=device)
+
 except Exception:
     raise ValueError(
         "The model is not found, please check the hyperparameters passed trhow the CLI."
@@ -169,7 +254,10 @@ hyperparams["loss_fn_str"] = loss_fn_str
 
 # Training hyperparameters
 batch_size = hyperparams["batch_size"]
-beta = hyperparams["beta"]
+try:
+    beta = hyperparams["beta"]
+except KeyError:
+    beta = 1.0  # default value
 FourierF = hyperparams["FourierF"]
 problem_dim = hyperparams["problem_dim"]
 retrain = hyperparams["retrain"]
@@ -251,19 +339,47 @@ print("")
     output_tensor,
     prediction_tensor,
 ) = get_tensors(model, test_loader, device)
+(
+    train_input_tensor,
+    train_output_tensor,
+    train_prediction_tensor,
+) = get_tensors(model, train_loader, device)
 
 #########################################
 # Compute mean error and print it
 #########################################
 # Error tensors
+train_relative_l1_tensor = LprelLoss(1, None)(
+    train_output_tensor, train_prediction_tensor
+)
 test_relative_l1_tensor = LprelLoss(1, None)(output_tensor, prediction_tensor)
+
+train_relative_l2_tensor = LprelLoss(2, None)(
+    train_output_tensor, train_prediction_tensor
+)
 test_relative_l2_tensor = LprelLoss(2, None)(output_tensor, prediction_tensor)
+
 if problem_dim == 1:
+    train_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
+        train_output_tensor, train_prediction_tensor
+    )
+    train_relative_h1_tensor = H1relLoss_1D(1.0, None)(
+        train_output_tensor, train_prediction_tensor
+    )
+
     test_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
         output_tensor, prediction_tensor
     )
     test_relative_h1_tensor = H1relLoss_1D(1.0, None)(output_tensor, prediction_tensor)
+
 elif problem_dim == 2:
+    train_relative_semih1_tensor = H1relLoss(1.0, None, 0.0)(
+        train_output_tensor, train_prediction_tensor
+    )
+    train_relative_h1_tensor = H1relLoss(1.0, None)(
+        train_output_tensor, train_prediction_tensor
+    )
+
     test_relative_semih1_tensor = H1relLoss(1.0, None, 0.0)(
         output_tensor, prediction_tensor
     )
@@ -318,7 +434,7 @@ if which_example in ["fhn", "hh", "ord"]:
     print("Test mean relative h1 norm componentwise: ", test_rel_h1_componentwise)
     print("")
 
-elif arc in ["crosstruss"]:
+elif which_example in ["crosstruss"]:
     test_rel_l1_componentwise = LprelLoss_multiout(1, True)(
         output_tensor, prediction_tensor
     )
@@ -345,7 +461,6 @@ elif arc in ["crosstruss"]:
 # Time for evaluation
 #########################################
 # evaluation of all the test set
-model.eval()
 t_1 = time.time()
 with torch.no_grad():
     _ = model(input_tensor)
@@ -365,41 +480,156 @@ print("")
 #########################################
 # Example 1: Plot the histogram
 #########################################
-
-
 @jaxtyped(typechecker=beartype)
-def plot_histogram(error: Float[Tensor, "n_samples"], str_norm: str):
-    error_np = error.to("cpu").numpy()
+def plot_histogram(
+    errors: list[Float[Tensor, "n_samples"]], str_norm: str, legends: list[str] = None
+):
+
+    if legends != None:
+        assert len(legends) == len(
+            errors
+        ), "Legend is not consistent with input errros, have different length."
+
+        error_np = {}
+        for legend, error in zip(legends, errors):
+            error_np[legend] = error.to("cpu").numpy()
+
+    else:
+        error_np = [error.to("cpu").numpy() for error in errors]
 
     # Set seaborn style for better aesthetics
-    sns.set(style="whitegrid", palette="deep")
+    sns.set(style="white", palette="deep")
+    plt.figure(figsize=(8, 6), layout="constrained")
 
-    plt.figure(figsize=(10, 6))
-    sns.histplot(error_np, bins=100, kde=True, color="skyblue", edgecolor="black")
-
-    # Add labels and title
-    plt.xlabel("Relative Error", fontsize=12)
-    plt.ylabel("Number of Samples", fontsize=12)
-    plt.title(
-        f"Histogram of the Relative Error in Norm {str_norm}", fontsize=14, pad=20
+    plt.xscale("log")
+    sns.histplot(
+        error_np,
+        bins=100,
+        # kde=True,
+        color="skyblue",
+        edgecolor="black",
+        multiple="stack",
+        legend=True if legends else False,
     )
 
-    # Improve grid and layout
-    plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
-    plt.tight_layout()
+    # Add labels and title
+    plt.xlabel("Relative Error", fontsize=18)
+    plt.ylabel("Number of Samples", fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
+    # plt.title(
+    #     f"Histogram of the Relative Error in Norm {str_norm}", fontsize=20, pad=20
+    # )
 
     # Show the plot
-    plt.show()
+    plt.savefig(
+        f"./{which_example}_histograms_{str_norm}.png", dpi=300, bbox_inches="tight"
+    )
+    # plt.show()
 
     # Resets the style to default
     plt.style.use("default")
 
 
 # call the functions to plot histograms for errors
-plot_histogram(test_relative_l1_tensor, "L1")
-plot_histogram(test_relative_l2_tensor, "L2")
-plot_histogram(test_relative_semih1_tensor, "Semi H1")
-plot_histogram(test_relative_h1_tensor, "H1")
+# plot_histogram(
+#     [train_relative_l1_tensor, test_relative_l1_tensor],
+#     "L1",
+#     ["Train error", "Test error"],
+# )
+plot_histogram(
+    [train_relative_l2_tensor, test_relative_l2_tensor],
+    "L2",
+    ["Train error", "Test error"],
+)
+# plot_histogram(
+#     [train_relative_semih1_tensor, test_relative_semih1_tensor],
+#     "Semi H1",
+#     ["Train error", "Test error"],
+# )
+# plot_histogram(
+#     [train_relative_h1_tensor, test_relative_h1_tensor],
+#     "H1",
+#     ["Train error", "Test error"],
+# )
+
+
+#########################################
+# Example 1_bis: boxplot
+#########################################
+@jaxtyped(typechecker=beartype)
+def plot_boxplot(
+    errors: list[Float[Tensor, "n_samples"]], str_norm: str, legends: list[str] = None
+):
+
+    if legends != None:
+        assert len(legends) == len(
+            errors
+        ), "Legend is not consistent with input errros, have different length."
+
+        error_np = {}
+        for legend, error in zip(legends, errors):
+            error_np[legend] = error.to("cpu").numpy()
+
+    else:
+        error_np = [error.to("cpu").numpy() for error in errors]
+
+    # Set seaborn style for better aesthetics
+    sns.set(style="white", palette="deep")
+    plt.figure(figsize=(8, 6), layout="constrained")
+
+    sns.stripplot(
+        error_np,
+        orient="v",
+        log_scale=True,
+        jitter=0.4,
+        edgecolor="black",
+        size=1.5,
+        linewidth=0.15,
+    )
+    sns.boxplot(error_np, fliersize=0, whis=1.5)
+
+    # Add labels and title
+    plt.ylabel("Relative Error", fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
+    # plt.title(
+    #     f"boxplot of the Relative Error in Norm {str_norm}", fontsize=20, pad=20
+    # )
+
+    # Show the plot
+    plt.savefig(
+        f"./{which_example}_boxplot_{str_norm}.png", dpi=300, bbox_inches="tight"
+    )
+    # plt.show()
+
+    # Resets the style to default
+    plt.style.use("default")
+
+
+# call the functions to plot swarm-plots for errors
+# plot_boxplot(
+#     [train_relative_l1_tensor, test_relative_l1_tensor],
+#     "L1",
+#     ["Train error", "Test error"],
+# )
+plot_boxplot(
+    [train_relative_l2_tensor, test_relative_l2_tensor],
+    "L2",
+    ["Train error", "Test error"],
+)
+# plot_boxplot(
+#     [train_relative_semih1_tensor, test_relative_semih1_tensor],
+#     "Semi H1",
+#     ["Train error", "Test error"],
+# )
+# plot_boxplot(
+#     [train_relative_h1_tensor, test_relative_h1_tensor],
+#     "H1",
+#     ["Train error", "Test error"],
+# )
 
 #########################################
 # Example 2: Plot the worst and best samples
@@ -565,7 +795,7 @@ test_plot_samples(
     which_example,
     ntest=100,
     str_norm=loss_fn_str,
-    n_idx=10,
+    n_idx=5,
 )
 
 
@@ -640,17 +870,15 @@ def save_tensor(
             }
 
         case "ord":
-            tf = 1000
+            tf = 500
             data_to_save = {
-                "input": input_tensor[:, ::4, :].numpy().squeeze(),
+                "input": input_tensor[:, :, :].numpy().squeeze(),
             }
             for idx, field in enumerate(example.fields_to_concat):
                 key_exact = field + "_exact"
                 key_pred = field + "_pred"
-                data_to_save[key_exact] = output_tensor[:, ::4, idx].numpy().squeeze()
-                data_to_save[key_pred] = (
-                    prediction_tensor[:, ::4, idx].numpy().squeeze()
-                )
+                data_to_save[key_exact] = output_tensor[:, :, idx].numpy().squeeze()
+                data_to_save[key_pred] = prediction_tensor[:, :, idx].numpy().squeeze()
 
         case _:
             flag = False
@@ -673,9 +901,9 @@ def save_tensor(
             os.makedirs(directory, exist_ok=True)
 
         if which_example == "ord":
-            str_file = f"{directory}{which_example}_train{norm_str}_n_{output_tensor.shape[0]}_points_{output_tensor[:, ::4, idx].shape[1]}_tf_{tf}_{mode_str}.mat"
+            str_file = f"{directory}{which_example}_train{norm_str}_n_{output_tensor.shape[0]}_points_{output_tensor[:, :, 0].shape[1]}_tf_{tf}_{mode_str}.mat"
         elif which_example in ["hh", "fhn"]:
-            str_file = f"{directory}{which_example}_train{norm_str}_n_{output_tensor.shape[0]}_points_{output_tensor[:, :, idx].shape[1]}_tf_{tf}_{mode_str}.mat"
+            str_file = f"{directory}{which_example}_train{norm_str}_n_{output_tensor.shape[0]}_points_{output_tensor[:, :, ].shape[1]}_tf_{tf}_{mode_str}.mat"
         elif which_example in [
             "poisson",
             "wave_0_5",

@@ -784,7 +784,8 @@ def plot_fhn(input_tensor, output_tensor, prediction_tensor, idx):
 
     plt.suptitle("Phase space of the FitzHugh-Nagumo equations")  # title
     plt.tight_layout()
-    plt.show()
+    # plt.savefig("./fhn_examples.png", dpi=300, bbox_inches="tight")
+    # plt.show()
 
 
 #########################################
@@ -868,7 +869,8 @@ def plot_hh(input_tensor, output_tensor, prediction_tensor, idx):
 
     plt.suptitle("Hodgkin-Huxley equations")  # title
     plt.tight_layout()
-    plt.show()
+    # plt.savefig("./hh_examples.png", dpi=300, bbox_inches="tight")
+    # plt.show()
 
 
 #########################################
@@ -1038,7 +1040,7 @@ def test_plot_samples(
     input_tensor: Float[Tensor, "n_samples *n in_dim"],
     output_tensor: Float[Tensor, "n_samples *n d_v"],
     prediction_tensor: Float[Tensor, "n_samples *n d_v"],
-    error: Float[Tensor, "n_samples"],  # noqa: F821
+    error: Float[Tensor, "n_samples"],
     mode: str,
     which_example: str,
     ntest: int,

@@ -21,9 +21,10 @@ def train_fixed_model(
     dataset_builder,
     loss_fn,
     experiment_name,
-    plot_data_input,
-    plot_data_output,
+    plot_data_input=None,
+    plot_data_output=None,
     loss_phys=lambda x, y: 0.0,
+    full_validation=True,
 ):
     required_keys = [
         "learning_rate",
@@ -56,6 +57,7 @@ def train_fixed_model(
         config["scheduler_step"],
         config["scheduler_gamma"],
         loss_phys=loss_phys,
+        full_validation=full_validation,
     )
 
 
@@ -74,6 +76,7 @@ def train_model_without_ray(
     scheduler_step: int = 1,
     scheduler_gamma: float = 0.99,
     loss_phys=lambda x, y: 0.0,
+    full_validation=True,
 ):
     folder = f"../tests/{experiment_name}"
     mode_hyperparams = experiment_name.split("_")[-1]
@@ -96,8 +99,10 @@ def train_model_without_ray(
     # count and print the total number of parameters
     total_params, total_bytes = count_params(model)
     total_mb = total_bytes / (1024**2)
-    print(f"Total Parameters: {total_params:,}")
-    print(f"Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)")
+
+    print("\n🤖 Model Summary:")
+    print(f"  📊 Total Parameters: {total_params:,}")
+    print(f"  💾Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)\n")
     writer.add_text("Parameters", f"Total Parameters: {total_params:,}", 0)
     writer.add_text(
         "Model Size", f"Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)", 0
@@ -113,9 +118,11 @@ def train_model_without_ray(
         optimizer, step_size=scheduler_step, gamma=scheduler_gamma
     )
 
+    print("🚀 Training Progress 🚀")
     for epoch in range(start_epoch, max_epochs):
         with tqdm(
-            desc=f"Epoch {epoch}", bar_format="{desc}: [{elapsed_s:.2f}{postfix}]"
+            desc=f"Epoch {epoch:>4d}",
+            bar_format="{desc} : [Time : {elapsed_s:<6.2f}{postfix}]",
         ) as tepoch:
             # train the model for one epoch
             train_epoch_result = train_epoch(
@@ -133,38 +140,59 @@ def train_model_without_ray(
                 esempio_test, soluzione_test = train_epoch_result
 
             # test the model for one epoch
-            (
-                test_relative_l1,
-                test_relative_l2,
-                test_relative_semih1,
-                test_relative_h1,
-                train_loss,
-            ) = validate_epoch(
-                model,
-                dataset.test_loader,
-                dataset.train_loader,
-                loss_fn,
-                config["problem_dim"],
-                device,
-                tepoch,
-                loss_phys=loss_phys,
-            )
+            if full_validation:
+                (
+                    test_relative_l1,
+                    test_relative_l2,
+                    test_relative_semih1,
+                    test_relative_h1,
+                    train_loss,
+                ) = validate_epoch(
+                    model,
+                    dataset.test_loader,
+                    dataset.train_loader,
+                    loss_fn,
+                    config["problem_dim"],
+                    device,
+                    tepoch,
+                    loss_phys=loss_phys,
+                )
+            else:
+                (test_loss, train_loss) = validate_epoch_fast(
+                    model,
+                    dataset.test_loader,
+                    dataset.train_loader,
+                    loss_fn,
+                    device,
+                    tepoch,
+                    loss_phys=loss_phys,
+                )
 
             # save the results of train and test on tensorboard
-            writer.add_scalars(
-                f"{model.__class__.__name__}_{config["problem_dim"]}D_{dataset.__class__.__name__}",
-                {
-                    "Train loss": train_loss,
-                    "Test rel. L^1 error": test_relative_l1,
-                    "Test rel. L^2 error": test_relative_l2,
-                    "Test rel. semi-H^1 error": test_relative_semih1,
-                    "Test rel. H^1 error": test_relative_h1,
-                },
-                epoch,
-            )
+            if full_validation:
+                writer.add_scalars(
+                    f"{model.__class__.__name__}_{config["problem_dim"]}D_{dataset.__class__.__name__}",
+                    {
+                        "Train loss": train_loss,
+                        "Test rel. L^1 error": test_relative_l1,
+                        "Test rel. L^2 error": test_relative_l2,
+                        "Test rel. semi-H^1 error": test_relative_semih1,
+                        "Test rel. H^1 error": test_relative_h1,
+                    },
+                    epoch,
+                )
+            else:
+                writer.add_scalars(
+                    f"{model.__class__.__name__}_{config["problem_dim"]}D_{dataset.__class__.__name__}",
+                    {
+                        "Train loss": train_loss,
+                        "Test loss": test_loss,
+                    },
+                    epoch,
+                )
 
             # make plots with loss separated for every component of the output
-            if config["out_dim"] > 1:
+            if config.get("out_dim", 0) > 1:
                 (
                     test_relative_l1_multiout,
                     test_relative_l2_multiout,
@@ -191,42 +219,68 @@ def train_model_without_ray(
                         epoch,
                     )
 
-            with open(folder + "/errors.txt", "w") as file:
-                file.write("Training loss: " + str(train_loss) + "\n")
-                file.write("Test relative L^1 error: " + str(test_relative_l1) + "\n")
-                file.write("Test relative L^2 error: " + str(test_relative_l2) + "\n")
-                file.write(
-                    "Test relative semi-H^1 error: " + str(test_relative_semih1) + "\n"
-                )
-                file.write("Test relative H^1 error: " + str(test_relative_h1) + "\n")
-                file.write("Current Epoch: " + str(epoch) + "\n")
-                file.write(f"Total Parameters: {total_params:,}\n")
-                file.write(
-                    f"Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)\n"
-                )
+            if full_validation:
+                with open(folder + "/errors.txt", "w") as file:
+                    file.write("Training loss: " + str(train_loss) + "\n")
+                    file.write(
+                        "Test relative L^1 error: " + str(test_relative_l1) + "\n"
+                    )
+                    file.write(
+                        "Test relative L^2 error: " + str(test_relative_l2) + "\n"
+                    )
+                    file.write(
+                        "Test relative semi-H^1 error: "
+                        + str(test_relative_semih1)
+                        + "\n"
+                    )
+                    file.write(
+                        "Test relative H^1 error: " + str(test_relative_h1) + "\n"
+                    )
+                    file.write("Current Epoch: " + str(epoch) + "\n")
+                    file.write(f"Total Parameters: {total_params:,}\n")
+                    file.write(
+                        f"Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)\n"
+                    )
+            else:
+                with open(folder + "/errors.txt", "w") as file:
+                    file.write("Training loss: " + str(train_loss) + "\n")
+                    file.write("Test loss: " + str(test_loss) + "\n")
+                    file.write("Current Epoch: " + str(epoch) + "\n")
+                    file.write(f"Total Parameters: {total_params:,}\n")
+                    file.write(
+                        f"Total Model Size: {total_bytes:,} bytes ({total_mb:.2f} MB)\n"
+                    )
 
             # plot data during the training and save on tensorboard
             if epoch == 0:
                 # plot the input data
-                plot_data_input(
-                    dataset,
-                    esempio_test,
-                    "Input function",
-                    epoch,
-                    writer,
-                    normalization=True,
-                    plotting=plotting,
+                (
+                    plot_data_input(
+                        dataset,
+                        esempio_test,
+                        "Input function",
+                        epoch,
+                        writer,
+                        normalization=True,
+                        plotting=plotting,
+                    )
+                    if plot_data_input is not None
+                    else None
                 )
 
                 # plot the exact solution
-                plot_data_output(
-                    dataset,
-                    soluzione_test,
-                    "Exact solution",
-                    epoch,
-                    writer,
-                    normalization=True,
-                    plotting=plotting,
+                (
+                    plot_data_output(
+                        dataset,
+                        soluzione_test,
+                        "Exact solution",
+                        epoch,
+                        writer,
+                        normalization=True,
+                        plotting=plotting,
+                    )
+                    if plot_data_output is not None
+                    else None
                 )
 
             # Approximate solution with NO
@@ -236,32 +290,50 @@ def train_model_without_ray(
                     out_test = out_test.cpu()
 
                 # plot the approximate solution
-                plot_data_output(
-                    dataset,
-                    out_test,
-                    f"Approximate solution with {model.__class__.__name__}",
-                    epoch,
-                    writer,
-                    normalization=True,
-                    plotting=plotting,
+                (
+                    plot_data_output(
+                        dataset,
+                        out_test,
+                        f"Approximate solution with {model.__class__.__name__}",
+                        epoch,
+                        writer,
+                        normalization=True,
+                        plotting=plotting,
+                    )
+                    if plot_data_output is not None
+                    else None
                 )
 
                 # Module of the difference
                 diff = torch.abs(out_test - soluzione_test)
-                plot_data_output(
-                    dataset,
-                    diff,
-                    "Module of the error",
-                    epoch,
-                    writer,
-                    normalization=False,
-                    plotting=plotting,
+                (
+                    plot_data_output(
+                        dataset,
+                        diff,
+                        "Module of the error",
+                        epoch,
+                        writer,
+                        normalization=False,
+                        plotting=plotting,
+                    )
+                    if plot_data_output is not None
+                    else None
                 )
 
     writer.flush()  # for saving final data
     writer.close()  # close the tensorboard writer
 
-    torch.save(model, name_model)
+    try:
+        checkpoint = {
+            "epoch": epoch,
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "loss": train_loss,
+            "scheduler": scheduler.state_dict(),
+        }
+        torch.save(checkpoint, name_model + ".tar")
+    except:
+        torch.save(model, name_model + ".pth")
 
 
 def train_epoch(
@@ -315,12 +387,10 @@ def train_epoch(
         # set the postfix for print
         train_loss += loss_f.item()
         if tepoch is not None:
-            tepoch.set_postfix(
-                {
-                    "Batch": step + 1,
-                    "Train loss (in progress)": train_loss
-                    / (input_batch.shape[0] * (step + 1)),
-                }
+            tepoch.set_postfix_str(
+                f"Batch: {(step + 1):3}"
+                + " , "
+                + f"Train loss (in progress): {(train_loss / (input_batch.shape[0] * (step + 1))):<7.4f}🔥",
             )
 
     # update the learning rate after an epoch
@@ -423,14 +493,16 @@ def validate_epoch(
         # train_loss /= len(train_loader) #!! For Mishra implementation
 
     # set the postfix for print
-    tepoch.set_postfix(
-        {
-            "Train loss": train_loss,
-            "Test rel. L^1 error": test_relative_l1,
-            "Test rel. L^2 error": test_relative_l2,
-            "Test rel. semi-H^1 error": test_relative_semih1,
-            "Test rel. H^1 error": test_relative_h1,
-        }
+    tepoch.set_postfix_str(
+        " | ".join(
+            [
+                f"Train loss: {train_loss:<7.4f}",
+                rf"Test rel. L¹: {test_relative_l1:<7.4f}",
+                f"Test rel. L²: {test_relative_l2:<7.4f}",
+                f"Test rel. semi-H¹: {test_relative_semih1:<7.4f}",
+                f"Test rel. H¹: {test_relative_h1:<7.4f}",
+            ]
+        )
     )
     tepoch.close()
 
@@ -439,6 +511,69 @@ def validate_epoch(
         test_relative_l2,
         test_relative_semih1,
         test_relative_h1,
+        train_loss,
+    )
+
+
+def validate_epoch_fast(
+    model,
+    test_loader,
+    train_loader,
+    loss,
+    device: torch.device,
+    tepoch,
+    loss_phys=lambda x, y: 0.0,
+):
+    """
+    Like validate_epoch, but with only the requested losses
+    """
+    with torch.no_grad():
+        model.eval()
+        test_loss = 0.0
+        train_loss = 0.0
+        training_samples_count = 0
+        test_samples_count = 0
+
+        ## Compute loss on the test set
+        for input_batch, output_batch in test_loader:
+            input_batch = input_batch.to(device)
+            test_samples_count += input_batch.size(0)
+            output_batch = output_batch.to(device)
+
+            # compute the output
+            output_pred_batch = model.forward(input_batch)
+
+            loss_f = loss(output_pred_batch, output_batch) + loss_phys(
+                output_pred_batch, input_batch
+            )
+            test_loss += loss_f.item()
+
+        ## Compute loss on the training set
+        for input_batch, output_batch in train_loader:
+            input_batch = input_batch.to(device)
+            training_samples_count += input_batch.size(0)
+            output_batch = output_batch.to(device)
+            output_pred_batch = model(input_batch)
+
+            loss_f = loss(output_pred_batch, output_batch) + loss_phys(
+                output_pred_batch, input_batch
+            )
+            train_loss += loss_f.item()
+
+        test_loss /= test_samples_count
+        train_loss /= training_samples_count
+
+    # set the postfix for print
+    tepoch.set_postfix(
+        {
+            "Train loss": train_loss,
+            "Test loss": test_loss,
+        }
+    )
+    tepoch.close()
+
+    return (
+        test_loss,
         train_loss,
     )
 

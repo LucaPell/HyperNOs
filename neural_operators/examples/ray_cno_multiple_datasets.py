@@ -1,5 +1,5 @@
-""" 
-In this example I choose some parameters to tune and some to keep fixed fot the CNO model. 
+"""
+In this example I choose some parameters to tune and some to keep fixed fot the CNO model.
 """
 
 import sys
@@ -8,16 +8,16 @@ import torch
 
 sys.path.append("..")
 
-from CNO.CNO import CNO
-from CNO.CNO_utilities import CNO_initialize_hyperparameters
+from CNO import CNO
 from datasets import NO_load_data_model, concat_datasets
 from loss_fun import loss_selector
 from ray import tune
 from tune import tune_hyperparameters
-from wrappers.wrap_model import wrap_model_builder
+from utilities import initialize_hyperparameters
+from wrappers import wrap_model_builder
 
 
-def main(
+def ray_cno_multiple_datasets(
     which_example: list,
     example_default_params: str,
     mode_hyperparams: str,
@@ -27,8 +27,8 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the CNO model
-    hyperparams_train, hyperparams_arc = CNO_initialize_hyperparameters(
-        example_default_params, mode=mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "CNO", example_default_params, mode=mode_hyperparams
     )
 
     # Define the hyperparameter search space
@@ -66,7 +66,7 @@ def main(
     ]
 
     # Define the model builders
-    model_builder = lambda config: CNO(  # noqa: E731
+    model_builder = lambda config: CNO(
         problem_dim=config["problem_dim"],
         in_dim=config["in_dim"],
         out_dim=config["out_dim"],
@@ -83,7 +83,7 @@ def main(
     model_builder = wrap_model_builder(model_builder, which_example)
 
     # Define the dataset builder
-    dataset_builder = lambda config: concat_datasets(  # noqa: E731
+    dataset_builder = lambda config: concat_datasets(
         *(
             NO_load_data_model(
                 dataset_name,
@@ -118,4 +118,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(["darcy", "poisson"], "darcy", "default", "L1")
+    ray_cno_multiple_datasets(["darcy", "poisson"], "darcy", "default", "L1")

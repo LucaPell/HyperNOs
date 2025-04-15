@@ -1,5 +1,5 @@
-""" 
-In this example I choose some parameters to tune and some to keep fixed fot the CNO model. 
+"""
+In this example I choose some parameters to tune and some to keep fixed fot the CNO model.
 Moreover I set the channel_multiplier for the CNO in order to have comparable number of parameters across the different models.
 """
 
@@ -9,26 +9,22 @@ import torch
 
 sys.path.append("..")
 
-from CNO.CNO import CNO
-from CNO.CNO_utilities import (
-    CNO_initialize_hyperparameters,
-    compute_channel_multiplier,
-    count_params_cno,
-)
+from CNO import CNO, compute_channel_multiplier, count_params_cno
 from datasets import NO_load_data_model
 from loss_fun import loss_selector
 from ray import tune
 from tune import tune_hyperparameters
-from wrappers.wrap_model import wrap_model_builder
+from utilities import initialize_hyperparameters
+from wrappers import wrap_model_builder
 
 
-def ray_same_dof_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
+def ray_samedof_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
     # Select available device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the CNO model
-    hyperparams_train, hyperparams_arc = CNO_initialize_hyperparameters(
-        which_example, mode=mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "CNO", which_example, mode=mode_hyperparams
     )
 
     fixed_params = {
@@ -68,7 +64,7 @@ def ray_same_dof_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str
     ]
 
     # Define the model builders
-    model_builder = lambda config: CNO(  # noqa: E731
+    model_builder = lambda config: CNO(
         problem_dim=config["problem_dim"],
         in_dim=config["in_dim"],
         out_dim=config["out_dim"],
@@ -85,7 +81,7 @@ def ray_same_dof_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str
     model_builder = wrap_model_builder(model_builder, which_example)
 
     # Define the dataset builder
-    dataset_builder = lambda config: NO_load_data_model(  # noqa: E731
+    dataset_builder = lambda config: NO_load_data_model(
         which_example=which_example,
         no_architecture={
             "FourierF": config["FourierF"],
@@ -115,4 +111,4 @@ def ray_same_dof_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str
 
 
 if __name__ == "__main__":
-    ray_same_dof_cno("darcy", "default", "L1")
+    ray_samedof_cno("darcy", "default", "L1")

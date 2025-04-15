@@ -1,5 +1,5 @@
-""" 
-In this example I choose some parameters to tune and some to keep fixed for the FNO model. 
+"""
+In this example I choose some parameters to tune and some to keep fixed for the FNO model.
 """
 
 import sys
@@ -9,12 +9,12 @@ import torch
 sys.path.append("..")
 
 from datasets import NO_load_data_model
-from FNO.FNO import FNO
-from FNO.FNO_utilities import FNO_initialize_hyperparameters
+from FNO import FNO
 from loss_fun import loss_selector
 from ray import tune
 from tune import tune_hyperparameters
-from wrappers.wrap_model import wrap_model_builder
+from utilities import initialize_hyperparameters
+from wrappers import wrap_model_builder
 
 
 def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
@@ -22,8 +22,8 @@ def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the FNO model
-    hyperparams_train, hyperparams_arc = FNO_initialize_hyperparameters(
-        which_example, mode=mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "FNO", which_example, mode=mode_hyperparams
     )
 
     # Define the hyperparameter search space
@@ -57,7 +57,7 @@ def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
     ]
 
     # Define the model builders
-    model_builder = lambda config: FNO(  # noqa: E731
+    model_builder = lambda config: FNO(
         config["problem_dim"],
         config["in_dim"],
         config["width"],
@@ -77,7 +77,7 @@ def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
     model_builder = wrap_model_builder(model_builder, which_example)
 
     # Define the dataset builder
-    dataset_builder = lambda config: NO_load_data_model(  # noqa: E731
+    dataset_builder = lambda config: NO_load_data_model(
         which_example=which_example,
         no_architecture={
             "FourierF": config["FourierF"],

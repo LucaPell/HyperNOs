@@ -1,4 +1,4 @@
-""" 
+"""
 In this example I fix all the hyperparameters for the FNO model and train it.
 """
 
@@ -10,22 +10,21 @@ import torch
 sys.path.append("..")
 
 from datasets import SinFrequency
-from FNO.FNO import FNO
-from FNO.FNO_utilities import FNO_initialize_hyperparameters
+from FNO import FNO
 from loss_fun import loss_selector
 from loss_fun_with_physics import PoissonResidualFiniteDiff
 from train import train_fixed_model
-from utilities import get_plot_function
+from utilities import get_plot_function, initialize_hyperparameters
 
 
-def train_fno(mode_hyperparams: str, loss_fn_str: str, alpha_phys: float):
+def train_fno_with_phys(mode_hyperparams: str, loss_fn_str: str, alpha_phys: float):
 
     # Select available device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the FNO model
-    hyperparams_train, hyperparams_arc = FNO_initialize_hyperparameters(
-        "poisson", mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "FNO", "poisson", mode_hyperparams
     )
 
     default_hyper_params = {
@@ -34,7 +33,7 @@ def train_fno(mode_hyperparams: str, loss_fn_str: str, alpha_phys: float):
     }
 
     # Define the model builders
-    model_builder = lambda config: FNO(  # noqa: E731
+    model_builder = lambda config: FNO(
         config["problem_dim"],
         config["in_dim"],
         config["width"],
@@ -52,7 +51,7 @@ def train_fno(mode_hyperparams: str, loss_fn_str: str, alpha_phys: float):
     )
 
     # Define the dataset builder
-    dataset_builder = lambda config: SinFrequency(  # noqa: E731
+    dataset_builder = lambda config: SinFrequency(
         {
             "FourierF": config["FourierF"],
             "retrain": config["retrain"],
@@ -96,4 +95,4 @@ def train_fno(mode_hyperparams: str, loss_fn_str: str, alpha_phys: float):
 
 
 if __name__ == "__main__":
-    train_fno("default", "L2", 0.01)
+    train_fno_with_phys("default", "L2", 0.01)

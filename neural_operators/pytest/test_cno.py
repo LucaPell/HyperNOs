@@ -4,9 +4,9 @@ sys.path.append("..")
 
 import pytest
 import torch
-from CNO.CNO import CNO
-from CNO.CNO_utilities import CNO_initialize_hyperparameters
-from wrappers.wrap_model import wrap_model
+from CNO import CNO
+from utilities import initialize_hyperparameters
+from wrappers import wrap_model
 
 
 # Select some random params for testing fro 1D CNO
@@ -25,8 +25,8 @@ def test_CNO_1d(which_example, mode_hyperparams):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the CNO model
-    hyperparams_train, hyperparams_arc = CNO_initialize_hyperparameters(
-        which_example, mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "CNO", which_example, mode_hyperparams
     )
 
     config = {
@@ -78,8 +78,8 @@ def test_CNO_2d(which_example, mode_hyperparams):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the CNO model
-    hyperparams_train, hyperparams_arc = CNO_initialize_hyperparameters(
-        which_example, mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "CNO", which_example, mode_hyperparams
     )
 
     config = {

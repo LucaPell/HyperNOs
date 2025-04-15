@@ -1,5 +1,5 @@
-""" 
-In this example I choose some parameters to tune and some to keep fixed for the FNO model. 
+"""
+In this example I choose some parameters to tune and some to keep fixed for the FNO model.
 """
 
 import sys
@@ -9,15 +9,15 @@ import torch
 sys.path.append("..")
 
 from datasets import NO_load_data_model, concat_datasets
-from FNO.FNO import FNO
-from FNO.FNO_utilities import FNO_initialize_hyperparameters
+from FNO import FNO
 from loss_fun import loss_selector
 from ray import tune
 from tune import tune_hyperparameters
-from wrappers.wrap_model import wrap_model_builder
+from utilities import initialize_hyperparameters
+from wrappers import wrap_model_builder
 
 
-def main(
+def ray_fno_multiple_datasets(
     which_example: list,
     example_default_params: str,
     mode_hyperparams: str,
@@ -27,8 +27,8 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default hyperparameters for the FNO model
-    hyperparams_train, hyperparams_arc = FNO_initialize_hyperparameters(
-        example_default_params, mode=mode_hyperparams
+    hyperparams_train, hyperparams_arc = initialize_hyperparameters(
+        "FNO", example_default_params, mode=mode_hyperparams
     )
 
     # Define the hyperparameter search space
@@ -62,7 +62,7 @@ def main(
     ]
 
     # Define the model builders
-    model_builder = lambda config: FNO(  # noqa: E731
+    model_builder = lambda config: FNO(
         config["problem_dim"],
         config["in_dim"],
         config["width"],
@@ -81,7 +81,7 @@ def main(
     # Wrap the model builder
     model_builder = wrap_model_builder(model_builder, which_example)
 
-    dataset_builder = lambda config: concat_datasets(  # noqa: E731
+    dataset_builder = lambda config: concat_datasets(
         *(
             NO_load_data_model(
                 dataset_name,
@@ -116,4 +116,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(["darcy", "poisson"], "darcy", "default", "L1")
+    ray_fno_multiple_datasets(["darcy", "poisson"], "darcy", "default", "L1")

@@ -17,6 +17,8 @@ def loss_selector(loss_fn_str: str, problem_dim: int, beta: float = 1.0):
             loss = LprelLoss(1, False)
         case "L2":
             loss = LprelLoss(2, False)
+        case "l2":
+            loss = lpLoss(2, False)
         case "H1":
             if problem_dim == 1:
                 loss = H1relLoss_1D(beta, False, 1.0)
@@ -105,6 +107,35 @@ class MSELoss_rel:
             return torch.sum(diff_norms / y_norms)  # sum along batchsize
         elif self.size_mean is None:
             return diff_norms / y_norms  # no reduction
+        else:
+            raise ValueError("size_mean must be a boolean or None")
+
+
+#########################################
+# l^p loss
+#########################################
+class lpLoss:
+    """l^p loss for vectors"""
+
+    def __init__(self, p: int, size_mean=False):
+        self.p = p
+        self.size_mean = size_mean
+
+    @jaxtyped(typechecker=beartype)
+    def __call__(
+        self,
+        x: Float[Tensor, "n_samples *n"],
+        y: Float[Tensor, "n_samples *n"],
+    ) -> Float[Tensor, "*n_samples"]:
+
+        diff_norms = torch.norm(x - y, p=self.p, dim=1)
+
+        if self.size_mean is True:
+            return torch.mean(diff_norms)
+        elif self.size_mean is False:
+            return torch.sum(diff_norms)  # sum along batchsize
+        elif self.size_mean is None:
+            return diff_norms  # no reduction
         else:
             raise ValueError("size_mean must be a boolean or None")
 
