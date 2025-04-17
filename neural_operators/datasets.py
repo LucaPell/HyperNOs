@@ -62,7 +62,8 @@ def NO_load_data_model(
         "crosstruss": CrossTruss,
         "stiffness_matrix": StiffnessMatrix,
         ###
-        "diffusion_reaction": Diffusion_reaction
+        "diffusion_reaction": Diffusion_reaction,
+        "FHN_1D": FitzHughNagumo_1D,
     }
 
     # Define additional parameters for specific cases
@@ -174,7 +175,12 @@ def downsample(u, N):
     u_down = samples_ifft(u_hat_down)
     return u_down
 
-#Basic example diffusion reaction -div(sigma*grad(u)) + u^3 = f
+
+#########################################
+# Basic example diffusion reaction -div(sigma*grad(u)) + u^3 = f
+########################################
+
+
 class Diffusion_reaction:
     def __init__(
         self,
@@ -204,32 +210,55 @@ class Diffusion_reaction:
             # torch.use_deterministic_algorithms(True)
             g.manual_seed(retrain)
 
-        # search the file 
+        # search the file
         file_location = find_file(
-                    "diffusion_reaction.pkl", search_path
-                )  # In-distribution file 64x64
+            "diffusion_reaction.pkl", search_path
+        )  # In-distribution file 64x64
 
-
-        #load the dataset
-        file = open(file_location,"rb")
+        # load the dataset
+        file = open(file_location, "rb")
         dataset = pickle.load(file)
-        #transform the input from [n_example] to [n_example,n_pts,n_pts]
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
         dataset_input = dataset["input"]
         dataset_solution = torch.tensor(dataset["solution"], dtype=torch.float32)
-        input = torch.tensor(np.broadcast_to(dataset_input.reshape(dataset_input.size,1,1),(dataset_input.size,self.s,self.s)), dtype=torch.float32)
+        input = torch.tensor(
+            np.broadcast_to(
+                dataset_input.reshape(dataset_input.size, 1, 1),
+                (dataset_input.size, self.s, self.s),
+            ),
+            dtype=torch.float32,
+        )
 
         # Divide in train/val/test
-        self.train_set = [input[:training_samples,:,:], dataset_solution[:training_samples,:,:]]
-        self.test_set = [input[training_samples:training_samples+100,:,:], dataset_solution[training_samples:training_samples+100,:,:]]
-        self.val_set = [ input[training_samples+100:,:,:], dataset_solution[training_samples+100:,:,:] ]
+        self.train_set = [
+            input[:training_samples, :, :],
+            dataset_solution[:training_samples, :, :],
+        ]
+        self.test_set = [
+            input[training_samples : training_samples + 100, :, :],
+            dataset_solution[training_samples : training_samples + 100, :, :],
+        ]
+        self.val_set = [
+            input[training_samples + 100 :, :, :],
+            dataset_solution[training_samples + 100 :, :, :],
+        ]
 
         # Unit gaussian normalizer
         self.input_normalizer = UnitGaussianNormalizer(self.train_set[0])
         self.output_normalizer = UnitGaussianNormalizer(self.train_set[1])
 
-        self.train_set_normalized = [self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1), self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1)]
-        self.test_set_normalized = [self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1), self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1)]
-        self.val_set_normalized = [self.input_normalizer.encode(self.val_set[0]).unsqueeze(-1), self.output_normalizer.encode(self.val_set[1]).unsqueeze(-1)]
+        self.train_set_normalized = [
+            self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+        ]
+        self.test_set_normalized = [
+            self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+        ]
+        self.val_set_normalized = [
+            self.input_normalizer.encode(self.val_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.val_set[1]).unsqueeze(-1),
+        ]
 
         # Change number of workers according to your preference
         num_workers = 0
@@ -259,6 +288,110 @@ class Diffusion_reaction:
             generator=g,
         )
 
+
+#########################################
+# FitzHugh-Nagumo 1D
+########################################
+
+
+class FitzHughNagumo_1D:
+    def __init__(
+        self,
+        network_properties,
+        batch_size,
+        training_samples,
+        s=100,
+        in_dist=True,
+        search_path="~/Dottorato/ML_DD/datasets",
+    ):
+        assert in_dist == True
+        self.s = s
+        self.s_in = s
+        self.s_out = s
+
+        # Fix the seed
+        g = torch.Generator()
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        # search the file
+        file_location = find_file("FHN_1D.pkl", search_path)
+
+        # load the dataset
+        file = open(file_location, "rb")
+        dataset = pickle.load(file)
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        dataset_input = dataset["input"]
+        dataset_solution = torch.tensor(dataset["Voltage"], dtype=torch.float32)
+        input = torch.tensor(dataset_input, dtype=torch.float32)
+
+        # Divide in train/val/test
+        self.train_set = [
+            input[:training_samples, :, :],
+            dataset_solution[:training_samples, :, :],
+        ]
+        self.test_set = [
+            input[training_samples : training_samples + 20, :, :],
+            dataset_solution[training_samples : training_samples + 20, :, :],
+        ]
+        self.val_set = [
+            input[training_samples + 20 :, :, :],
+            dataset_solution[training_samples + 20 :, :, :],
+        ]
+
+        # Unit gaussian normalizer
+        self.input_normalizer = UnitGaussianNormalizer(self.train_set[0])
+        self.output_normalizer = UnitGaussianNormalizer(self.train_set[1])
+
+        self.train_set_normalized = [
+            self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+        ]
+        self.test_set_normalized = [
+            self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+        ]
+        self.val_set_normalized = [
+            self.input_normalizer.encode(self.val_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.val_set[1]).unsqueeze(-1),
+        ]
+
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(*self.train_set_normalized),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(*self.val_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(*self.test_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
 
 
 # ------------------------------------------------------------------------------

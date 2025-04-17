@@ -352,14 +352,14 @@ def test_invalid_out_dist(example_name):
 #     assert val_batch_input.shape == (batch_size, example.s_in)
 #     assert val_batch_output.shape == (batch_size, example.s_out)
 
+
 #     assert example.input_normalizer.mean.shape[0] == example.s_in
 #     assert example.input_normalizer.std.shape[0] == example.s_in
 #     assert example.output_normalizer.mean.shape[0] == example.s_out
 #     assert example.output_normalizer.std.shape[0] == example.s_out
-
 def test_diffusion_reaction():
     batch_size = 100
-    training_samples = 1000 
+    training_samples = 1000
     example = NO_load_data_model(
         which_example="diffusion_reaction",
         no_architecture={
@@ -382,9 +382,10 @@ def test_diffusion_reaction():
     assert val_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
     assert val_batch_output.shape == (batch_size, example.s_out, example.s_in, 1)
 
+
 def test_diffusion_reaction_mean():
     batch_size = 1000
-    training_samples = 1000 
+    training_samples = 1000
     example = NO_load_data_model(
         which_example="diffusion_reaction",
         no_architecture={
@@ -402,4 +403,64 @@ def test_diffusion_reaction_mean():
     assert example.input_normalizer.mean.shape == (example.s_in, example.s_in)
     assert example.output_normalizer.mean.shape == (example.s_out, example.s_out)
 
-    assert torch.allclose(torch.mean(train_batch_input, 0, dtype=torch.float32), torch.zeros(example.s_in, example.s_in, dtype=torch.float32), atol=1e-6)
+    assert torch.allclose(
+        torch.mean(train_batch_input, 0, dtype=torch.float32),
+        torch.zeros(example.s_in, example.s_in, dtype=torch.float32),
+        atol=1e-6,
+    )
+
+
+##############
+# Test FHN 1D
+##############
+def test_FHN_1D():
+    batch_size = 20
+    training_samples = 460
+    example = NO_load_data_model(
+        which_example="FHN_1D",
+        no_architecture={
+            "FourierF": 0,
+            "retrain": 1,
+        },
+        batch_size=batch_size,
+        training_samples=training_samples,
+    )
+
+    train_batch_input, train_batch_output = next(iter(example.train_loader))
+    assert train_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert train_batch_output.shape == (batch_size, example.s_out, example.s_out, 1)
+
+    test_batch_input, test_batch_output = next(iter(example.test_loader))
+    assert test_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert test_batch_output.shape == (batch_size, example.s_out, example.s_out, 1)
+
+    val_batch_input, val_batch_output = next(iter(example.val_loader))
+    assert val_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert val_batch_output.shape == (batch_size, example.s_out, example.s_in, 1)
+
+
+def test_FHN_1D_mean():
+    batch_size = 460
+    training_samples = 460
+    example = NO_load_data_model(
+        which_example="FHN_1D",
+        no_architecture={
+            "FourierF": 0,
+            "retrain": 1,
+        },
+        batch_size=batch_size,
+        training_samples=training_samples,
+    )
+
+    train_batch_input, train_batch_output = next(iter(example.train_loader))
+    assert train_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert train_batch_output.shape == (batch_size, example.s_out, example.s_out, 1)
+
+    assert example.input_normalizer.mean.shape == (example.s_in, example.s_in)
+    assert example.output_normalizer.mean.shape == (example.s_out, example.s_out)
+
+    assert torch.allclose(
+        torch.mean(train_batch_input, 0, dtype=torch.float32),
+        torch.zeros(example.s_in, example.s_in, dtype=torch.float32),
+        atol=1e-6,
+    )
