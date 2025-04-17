@@ -93,6 +93,7 @@ def parse_arguments():
             "ord",
             "crosstruss",
             "afieti_homogeneous_neumann",
+            "diffusion_reaction"
         ],
         help="Select the example to run.",
     )

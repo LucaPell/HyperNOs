@@ -481,6 +481,38 @@ def plot_data_generic_2d(
 #########################################
 # Function to plot the data for all the Mishra's example
 #########################################
+def plot_data_diffusion_input(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot = example.input_normalizer.decode(data_plot.squeeze(-1))
+
+    plot_data_generic_2d(data_plot, title, ep, writer, plotting)
+
+
+def plot_data_diffusion(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot = example.output_normalizer.decode(data_plot.squeeze(-1))
+
+    plot_data_generic_2d(data_plot, title, ep, writer, plotting)
+
+#########################################
+# Function to plot the data for all the Mishra's example
+#########################################
 def plot_data_mishra_input(
     example,
     data_plot: Tensor,
@@ -645,6 +677,11 @@ def get_plot_function(
             if "input" in title.lower():
                 return plot_data_crosstruss_input
             return plot_data_stiffness_matrix
+
+        case "diffusion_reaction":
+            if "input" in title.lower():
+                return plot_data_diffusion_input
+            return plot_data_diffusion
 
     if which_example in [
         "poisson",
