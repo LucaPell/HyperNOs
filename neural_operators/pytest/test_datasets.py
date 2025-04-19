@@ -417,7 +417,7 @@ def test_FHN_1D():
     batch_size = 20
     training_samples = 500
     example = NO_load_data_model(
-        which_example="FHN_1D",
+        which_example="fhn_1d",
         no_architecture={
             "FourierF": 0,
             "retrain": 1,
@@ -440,10 +440,10 @@ def test_FHN_1D():
 
 
 def test_FHN_1D_mean():
-    batch_size = 460
-    training_samples = 460
+    batch_size = 500
+    training_samples = 500
     example = NO_load_data_model(
-        which_example="FHN_1D",
+        which_example="fhn_1d",
         no_architecture={
             "FourierF": 0,
             "retrain": 1,

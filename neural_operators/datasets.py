@@ -63,7 +63,7 @@ def NO_load_data_model(
         "stiffness_matrix": StiffnessMatrix,
         ###
         "diffusion_reaction": Diffusion_reaction,
-        "FHN_1D": FitzHughNagumo_1D,
+        "fhn_1d": FitzHughNagumo_1D,
     }
 
     # Define additional parameters for specific cases
@@ -302,7 +302,7 @@ class FitzHughNagumo_1D:
         training_samples,
         s=100,
         in_dist=True,
-        search_path="~/Dottorato/firedrake/datasets",
+        search_path="~/Dottorato/firedrake/datasets/script/",
     ):
         assert in_dist == True
         self.s = s

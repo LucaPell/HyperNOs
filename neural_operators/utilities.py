@@ -499,8 +499,8 @@ def plot_data_FHN_1D_input(
     ax[0].set(ylabel="t")
     limits = [0, 1, 0, 40]
     for i in range(n_idx):
-        # ax[i].set_yticklabels([])
-        # ax[i].set_xticklabels([])
+        ax[i].set_yticklabels([])
+        ax[i].set_xticklabels([])
         ax[i].set(xlabel="x")
         im = ax[i].imshow(data_plot[i], extent=limits, aspect="auto")
         fig.colorbar(im, ax=ax[i])
@@ -525,11 +525,11 @@ def plot_data_FHN_1D(
     n_idx = data_plot.size(0)
     fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
     fig.suptitle(title)
-    ax[0].set(ylabel="t")
+    ax[0].set(ylabel="y")
     limits = [0, 1, 0, 40]
     for i in range(n_idx):
-        # ax[i].set_yticklabels([])
-        # ax[i].set_xticklabels([])
+        ax[i].set_yticklabels([])
+        ax[i].set_xticklabels([])
         ax[i].set(xlabel="x")
         im = ax[i].imshow(data_plot[i], extent=limits, aspect="auto")
         fig.colorbar(im, ax=ax[i])
@@ -744,7 +744,7 @@ def get_plot_function(
             if "input" in title.lower():
                 return plot_data_diffusion_input
             return plot_data_diffusion
-        case "FHN_1D":
+        case "fhn_1d":
             if "input" in title.lower():
                 return plot_data_FHN_1D_input
             return plot_data_FHN_1D

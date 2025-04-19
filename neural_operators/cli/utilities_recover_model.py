@@ -987,9 +987,6 @@ def plot_crosstruss(input_tensor, output_tensor, prediction_tensor, idx):
     plt.savefig("figure.png")
 
 
-#########################################
-# Plot for the stiffness matrix example
-#########################################
 def plot_stiffness_matrix(input_tensor, output_tensor, prediction_tensor, idx):
     fig, axs = plt.subplots(7, len(idx), figsize=(16, 16))
 
@@ -1033,6 +1030,59 @@ def plot_stiffness_matrix(input_tensor, output_tensor, prediction_tensor, idx):
     plt.tight_layout()
     plt.show()
     plt.savefig("figure.png")
+
+
+#########################################
+# Plot for the FitzHugh-Nagumo 1D model example
+#########################################
+def plot_fhn_1d(input_tensor, output_tensor, prediction_tensor, idx):
+    fig, axs = plt.subplots(4, len(idx), figsize=(16, 12))
+    limits = [0, 1, 0, 40]
+    for i in range(4):
+        for j in range(idx.shape[0]):
+            if i == 0:  # input
+                im = axs[i, j].imshow(
+                    input_tensor[idx[j], :, :].squeeze(), extent=limits, aspect="auto"
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Applied current")
+
+            elif i == 1:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Exact solution u")
+
+            elif i == 2:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Approx. solution u")
+
+            elif i == 3:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :] - prediction_tensor[idx[j], :, :]
+                )
+                im = axs[i, j].imshow(error.squeeze())
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Error")
+
+            axs[i, j].set_yticklabels([])
+            axs[i, j].set_xticklabels([])
+            # axs[i, j].set_xlabel('x')
+
+    plt.tight_layout()
+    plt.show()
 
 
 @jaxtyped(typechecker=beartype)
@@ -1096,5 +1146,8 @@ def test_plot_samples(
             plot_hh(input_tensor, output_tensor, prediction_tensor, idx)
         case "ord":
             plot_ord(input_tensor, output_tensor, prediction_tensor, idx)
+        case "fhn_1d":
+            print(np.shape(output_tensor))
+            plot_fhn_1d(input_tensor, output_tensor, prediction_tensor, idx)
         case _:
             raise ValueError(f"Unsupported example type: {which_example}.")

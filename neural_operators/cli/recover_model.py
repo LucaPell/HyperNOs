@@ -93,7 +93,8 @@ def parse_arguments():
             "ord",
             "crosstruss",
             "afieti_homogeneous_neumann",
-            "diffusion_reaction"
+            "diffusion_reaction",
+            "fhn_1d",
         ],
         help="Select the example to run.",
     )
@@ -639,7 +640,6 @@ plot_boxplot(
 input_tensor = input_tensor.to("cpu")
 output_tensor = output_tensor.to("cpu")
 prediction_tensor = prediction_tensor.to("cpu")
-
 # Denormalize the tensors for plotting
 stats_to_save = None  # default value
 match which_example:
@@ -742,9 +742,17 @@ match which_example:
         pass
 
     case "darcy_zongyi":
-        input_tensor = example.a_normalizer.decode(input_tensor)
+        input_tensor = example.a_normalizer.decode(input_tensor.squeeze())
         output_tensor = example.u_normalizer.decode(output_tensor)
         prediction_tensor = example.u_normalizer.decode(prediction_tensor)
+    case "fhn_1d":
+        import numpy as np
+
+        input_tensor = example.input_normalizer.decode(input_tensor.squeeze())
+        output_tensor = example.output_normalizer.decode(output_tensor.squeeze())
+        prediction_tensor = example.output_normalizer.decode(
+            prediction_tensor.squeeze()
+        )
 
     case "burgers_zongyi" | "navier_stokes_zongyi":
         pass
