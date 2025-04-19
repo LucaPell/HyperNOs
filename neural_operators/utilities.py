@@ -479,6 +479,67 @@ def plot_data_generic_2d(
 
 
 #########################################
+# Function to plot the data for the FHN 1D example
+#########################################
+def plot_data_FHN_1D_input(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot = example.input_normalizer.decode(data_plot.squeeze(-1))
+
+    n_idx = data_plot.size(0)
+    fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+    fig.suptitle(title)
+    ax[0].set(ylabel="t")
+    limits = [0, 1, 0, 40]
+    for i in range(n_idx):
+        # ax[i].set_yticklabels([])
+        # ax[i].set_xticklabels([])
+        ax[i].set(xlabel="x")
+        im = ax[i].imshow(data_plot[i], extent=limits, aspect="auto")
+        fig.colorbar(im, ax=ax[i])
+    if plotting:
+        plt.show()
+    # save the plot on tensorboard
+    writer.add_figure(title, fig, ep)
+
+
+def plot_data_FHN_1D(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot = example.output_normalizer.decode(data_plot.squeeze(-1))
+
+    n_idx = data_plot.size(0)
+    fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+    fig.suptitle(title)
+    ax[0].set(ylabel="t")
+    limits = [0, 1, 0, 40]
+    for i in range(n_idx):
+        # ax[i].set_yticklabels([])
+        # ax[i].set_xticklabels([])
+        ax[i].set(xlabel="x")
+        im = ax[i].imshow(data_plot[i], extent=limits, aspect="auto")
+        fig.colorbar(im, ax=ax[i])
+    if plotting:
+        plt.show()
+    # save the plot on tensorboard
+    writer.add_figure(title, fig, ep)
+
+
+#########################################
 # Function to plot the data for all the Mishra's example
 #########################################
 def plot_data_diffusion_input(
@@ -509,6 +570,7 @@ def plot_data_diffusion(
         data_plot = example.output_normalizer.decode(data_plot.squeeze(-1))
 
     plot_data_generic_2d(data_plot, title, ep, writer, plotting)
+
 
 #########################################
 # Function to plot the data for all the Mishra's example
@@ -682,6 +744,10 @@ def get_plot_function(
             if "input" in title.lower():
                 return plot_data_diffusion_input
             return plot_data_diffusion
+        case "FHN_1D":
+            if "input" in title.lower():
+                return plot_data_FHN_1D_input
+            return plot_data_FHN_1D
 
     if which_example in [
         "poisson",

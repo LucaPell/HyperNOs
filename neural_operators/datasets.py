@@ -302,7 +302,7 @@ class FitzHughNagumo_1D:
         training_samples,
         s=100,
         in_dist=True,
-        search_path="~/Dottorato/ML_DD/datasets",
+        search_path="~/Dottorato/firedrake/datasets",
     ):
         assert in_dist == True
         self.s = s
@@ -323,32 +323,32 @@ class FitzHughNagumo_1D:
             # torch.use_deterministic_algorithms(True)
             g.manual_seed(retrain)
 
-        # search the file
-        file_location = find_file("FHN_1D.pkl", search_path)
+        ##############
+        # Training
+        ##############
+        file_location_training = find_file("FHN_1D_training.pkl", search_path)
 
         # load the dataset
-        file = open(file_location, "rb")
-        dataset = pickle.load(file)
+        file_training = open(file_location_training, "rb")
+        dataset_training = pickle.load(file_training)
+        file_training.close()
         # transform the input from [n_example] to [n_example,n_pts,n_pts]
-        dataset_input = dataset["input"]
-        dataset_solution = torch.tensor(dataset["Voltage"], dtype=torch.float32)
-        input = torch.tensor(dataset_input, dtype=torch.float32)
+        dataset_input_training = dataset_training["input"]
 
-        # Divide in train/val/test
+        dataset_solution_training = torch.tensor(
+            dataset_training["Voltage"], dtype=torch.float32
+        )
+
+        dataset_input_training = torch.tensor(
+            dataset_input_training, dtype=torch.float32
+        )
+        # concatenate the training set
         self.train_set = [
-            input[:training_samples, :, :],
-            dataset_solution[:training_samples, :, :],
-        ]
-        self.test_set = [
-            input[training_samples : training_samples + 20, :, :],
-            dataset_solution[training_samples : training_samples + 20, :, :],
-        ]
-        self.val_set = [
-            input[training_samples + 20 :, :, :],
-            dataset_solution[training_samples + 20 :, :, :],
+            dataset_input_training[:, :, :],
+            dataset_solution_training[:, :, :],
         ]
 
-        # Unit gaussian normalizer
+        # normalization
         self.input_normalizer = UnitGaussianNormalizer(self.train_set[0])
         self.output_normalizer = UnitGaussianNormalizer(self.train_set[1])
 
@@ -356,13 +356,79 @@ class FitzHughNagumo_1D:
             self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1),
             self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1),
         ]
+
+        ##############
+        # Validation
+        ##############
+
+        # search the file validation
+        file_location_validation = find_file("FHN_1D_validation.pkl", search_path)
+
+        # load the dataset
+        file_validation = open(file_location_validation, "rb")
+        dataset_validation = pickle.load(file_validation)
+        file_validation.close()
+
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+
+        dataset_input_validation = dataset_validation["input"]
+        dataset_solution_validation = torch.tensor(
+            dataset_validation["Voltage"], dtype=torch.float32
+        )
+
+        dataset_input_validation = torch.tensor(
+            dataset_input_validation, dtype=torch.float32
+        )
+
+        # concatenate the validation set
+        self.validation_set = [
+            dataset_input_validation[:, :, :],
+            dataset_solution_validation[:, :, :],
+        ]
+
+        # normalization
+        # self.input_normalizer = UnitGaussianNormalizer(self.validation_set[0])
+        # self.output_normalizer = UnitGaussianNormalizer(self.validation_set[1])
+
+        self.validation_set_normalized = [
+            self.input_normalizer.encode(self.validation_set[0]).unsqueeze(-1),
+            self.output_normalizer.encode(self.validation_set[1]).unsqueeze(-1),
+        ]
+
+        ##############
+        # Test
+        ##############
+
+        # search the file test
+        file_location_test = find_file("FHN_1D_test.pkl", search_path)
+
+        # load the dataset
+        file_test = open(file_location_test, "rb")
+        dataset_test = pickle.load(file_test)
+        file_test.close()
+
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+
+        dataset_input_test = dataset_test["input"]
+        dataset_solution_test = torch.tensor(
+            dataset_test["Voltage"], dtype=torch.float32
+        )
+
+        dataset_input_test = torch.tensor(dataset_input_test, dtype=torch.float32)
+
+        # concatenate the test set
+        self.test_set = [
+            dataset_input_test[:, :, :],
+            dataset_solution_test[:, :, :],
+        ]
+
+        # # normalization
+        # self.input_normalizer = UnitGaussianNormalizer(self.test_set[0])
+        # self.output_normalizer = UnitGaussianNormalizer(self.test_set[1])
+
         self.test_set_normalized = [
             self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1),
             self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1),
-        ]
-        self.val_set_normalized = [
-            self.input_normalizer.encode(self.val_set[0]).unsqueeze(-1),
-            self.output_normalizer.encode(self.val_set[1]).unsqueeze(-1),
         ]
 
         # Change number of workers according to your preference
@@ -377,7 +443,7 @@ class FitzHughNagumo_1D:
             generator=g,
         )
         self.val_loader = DataLoader(
-            TensorDataset(*self.val_set_normalized),
+            TensorDataset(*self.validation_set_normalized),
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,

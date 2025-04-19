@@ -415,7 +415,7 @@ def test_diffusion_reaction_mean():
 ##############
 def test_FHN_1D():
     batch_size = 20
-    training_samples = 460
+    training_samples = 500
     example = NO_load_data_model(
         which_example="FHN_1D",
         no_architecture={
