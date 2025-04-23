@@ -455,21 +455,21 @@ def validate_epoch(
                 output_pred_batch, output_batch
             ).item()
 
-            # compute the relative semi-H^1 error and H^1 error
-            if problem_dim == 1:
-                test_relative_semih1 += H1relLoss_1D(1.0, False, 0.0)(
-                    output_pred_batch, output_batch
-                ).item()
-                test_relative_h1 += H1relLoss_1D(1.0, False)(
-                    output_pred_batch, output_batch
-                ).item()  # beta = 1.0 in test loss
-            elif problem_dim == 2:
-                test_relative_semih1 += H1relLoss(1.0, False, 0.0)(
-                    output_pred_batch, output_batch
-                ).item()
-                test_relative_h1 += H1relLoss(1.0, False)(
-                    output_pred_batch, output_batch
-                ).item()  # beta = 1.0 in test loss
+            # # compute the relative semi-H^1 error and H^1 error
+            # if problem_dim == 1:
+            #     test_relative_semih1 += H1relLoss_1D(1.0, False, 0.0)(
+            #         output_pred_batch, output_batch
+            #     ).item()
+            #     test_relative_h1 += H1relLoss_1D(1.0, False)(
+            #         output_pred_batch, output_batch
+            #     ).item()  # beta = 1.0 in test loss
+            # elif problem_dim == 2:
+            #     test_relative_semih1 += H1relLoss(1.0, False, 0.0)(
+            #         output_pred_batch, output_batch
+            #     ).item()
+            #     test_relative_h1 += H1relLoss(1.0, False)(
+            #         output_pred_batch, output_batch
+            #     ).item()  # beta = 1.0 in test loss
 
         ## Compute loss on the training set
         for input_batch, output_batch in train_loader:
@@ -614,21 +614,21 @@ def test_fun_multiout(
                 output_pred_batch, output_batch
             )
 
-            # compute the relative semi-H^1 error and H^1 error
-            if problem_dim == 1:
-                test_relative_semih1_multiout += H1relLoss_1D_multiout(1.0, False, 0.0)(
-                    output_pred_batch, output_batch
-                )
-                test_relative_h1_multiout += H1relLoss_1D_multiout(1.0, False)(
-                    output_pred_batch, output_batch
-                )  # beta = 1.0 in test loss
-            elif problem_dim == 2:
-                test_relative_semih1_multiout += H1relLoss_multiout(1.0, False, 0.0)(
-                    output_pred_batch, output_batch
-                )
-                test_relative_h1_multiout += H1relLoss_multiout(1.0, False)(
-                    output_pred_batch, output_batch
-                )  # beta = 1.0 in test loss
+            # # compute the relative semi-H^1 error and H^1 error
+            # if problem_dim == 1:
+            #     test_relative_semih1_multiout += H1relLoss_1D_multiout(1.0, False, 0.0)(
+            #         output_pred_batch, output_batch
+            #     )
+            #     test_relative_h1_multiout += H1relLoss_1D_multiout(1.0, False)(
+            #         output_pred_batch, output_batch
+            #     )  # beta = 1.0 in test loss
+            # elif problem_dim == 2:
+            #     test_relative_semih1_multiout += H1relLoss_multiout(1.0, False, 0.0)(
+            #         output_pred_batch, output_batch
+            #     )
+            #     test_relative_h1_multiout += H1relLoss_multiout(1.0, False)(
+            #         output_pred_batch, output_batch
+            #     )  # beta = 1.0 in test loss
 
         test_relative_l1_multiout /= test_samples_count
         test_relative_l2_multiout /= test_samples_count
@@ -641,3 +641,38 @@ def test_fun_multiout(
         test_relative_semih1_multiout,
         test_relative_h1_multiout,
     )
+
+
+def test_fun_multiout_fast(
+    model,
+    test_loader,
+    device: torch.device,
+    dim_output: int,
+    loss,
+    loss_phys=lambda x, y: 0.0,
+):
+    """
+    As test_fun, but it returns the losses separately (one for each component of the output)
+    """
+    with torch.no_grad():
+        model.eval()
+        test_loss = torch.zeros(dim_output).to(device)
+        test_samples_count = 0
+
+        ## Compute loss on the test set
+        for input_batch, output_batch in test_loader:
+            input_batch = input_batch.to(device)
+            test_samples_count += input_batch.size(0)
+            output_batch = output_batch.to(device)
+
+            # compute the output
+            output_pred_batch = model.forward(input_batch)
+
+            loss_f = loss(output_pred_batch, output_batch) + loss_phys(
+                output_pred_batch, input_batch
+            )
+            train_loss += loss_f.item()
+
+        test_loss /= test_samples_count
+
+    return (test_loss,)

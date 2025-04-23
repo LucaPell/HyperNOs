@@ -17,6 +17,7 @@ from utilities import (
     FourierFeatures,
     FourierFeatures1D,
     UnitGaussianNormalizer,
+    minmaxGlobalNormalizer,
     find_file,
 )
 
@@ -326,111 +327,113 @@ class FitzHughNagumo_1D:
         ##############
         # Training
         ##############
-        file_location_training = find_file("FHN_1D_training.pkl", search_path)
+        file_location_training = find_file("fhn_1d_training.pkl", search_path)
 
         # load the dataset
         file_training = open(file_location_training, "rb")
         dataset_training = pickle.load(file_training)
         file_training.close()
         # transform the input from [n_example] to [n_example,n_pts,n_pts]
-        dataset_input_training = dataset_training["input"]
+        input_training = torch.tensor(dataset_training["input"], dtype=torch.float32)
 
-        dataset_solution_training = torch.tensor(
+        voltage_training = torch.tensor(
             dataset_training["Voltage"], dtype=torch.float32
         )
+        gating_training = torch.tensor(dataset_training["gating"], dtype=torch.float32)
 
-        dataset_input_training = torch.tensor(
-            dataset_input_training, dtype=torch.float32
-        )
-        # concatenate the training set
         self.train_set = [
-            dataset_input_training[:, :, :],
-            dataset_solution_training[:, :, :],
+            input_training[:, :, :],
+            voltage_training[:, :, :],
+            gating_training[:, :, :],
         ]
 
-        # normalization
-        self.input_normalizer = UnitGaussianNormalizer(self.train_set[0])
-        self.output_normalizer = UnitGaussianNormalizer(self.train_set[1])
+        self.input_normalizer = minmaxGlobalNormalizer(input_training)
+        self.voltage_normalizer = minmaxGlobalNormalizer(voltage_training)
+        self.gating_normalizer = minmaxGlobalNormalizer(gating_training)
 
         self.train_set_normalized = [
             self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1),
-            self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.train_set[2]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
         ]
 
         ##############
-        # Validation
+        # validation
         ##############
-
-        # search the file validation
-        file_location_validation = find_file("FHN_1D_validation.pkl", search_path)
+        file_location_validation = find_file("fhn_1d_validation.pkl", search_path)
 
         # load the dataset
         file_validation = open(file_location_validation, "rb")
         dataset_validation = pickle.load(file_validation)
         file_validation.close()
-
         # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        input_validation = torch.tensor(
+            dataset_validation["input"], dtype=torch.float32
+        )
 
-        dataset_input_validation = dataset_validation["input"]
-        dataset_solution_validation = torch.tensor(
+        voltage_validation = torch.tensor(
             dataset_validation["Voltage"], dtype=torch.float32
         )
-
-        dataset_input_validation = torch.tensor(
-            dataset_input_validation, dtype=torch.float32
+        gating_validation = torch.tensor(
+            dataset_validation["gating"], dtype=torch.float32
         )
 
-        # concatenate the validation set
         self.validation_set = [
-            dataset_input_validation[:, :, :],
-            dataset_solution_validation[:, :, :],
+            input_validation[:, :, :],
+            voltage_validation[:, :, :],
+            gating_validation[:, :, :],
         ]
-
-        # normalization
-        # self.input_normalizer = UnitGaussianNormalizer(self.validation_set[0])
-        # self.output_normalizer = UnitGaussianNormalizer(self.validation_set[1])
 
         self.validation_set_normalized = [
             self.input_normalizer.encode(self.validation_set[0]).unsqueeze(-1),
-            self.output_normalizer.encode(self.validation_set[1]).unsqueeze(-1),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.validation_set[1]).unsqueeze(
+                        -1
+                    ),
+                    self.gating_normalizer.encode(self.validation_set[2]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
         ]
 
         ##############
-        # Test
+        # test
         ##############
-
-        # search the file test
-        file_location_test = find_file("FHN_1D_test.pkl", search_path)
+        file_location_test = find_file("fhn_1d_test.pkl", search_path)
 
         # load the dataset
         file_test = open(file_location_test, "rb")
         dataset_test = pickle.load(file_test)
         file_test.close()
-
         # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        input_test = torch.tensor(dataset_test["input"], dtype=torch.float32)
 
-        dataset_input_test = dataset_test["input"]
-        dataset_solution_test = torch.tensor(
-            dataset_test["Voltage"], dtype=torch.float32
-        )
+        voltage_test = torch.tensor(dataset_test["Voltage"], dtype=torch.float32)
+        gating_test = torch.tensor(dataset_test["gating"], dtype=torch.float32)
 
-        dataset_input_test = torch.tensor(dataset_input_test, dtype=torch.float32)
-
-        # concatenate the test set
         self.test_set = [
-            dataset_input_test[:, :, :],
-            dataset_solution_test[:, :, :],
+            input_test[:, :, :],
+            voltage_test[:, :, :],
+            gating_test[:, :, :],
         ]
-
-        # # normalization
-        # self.input_normalizer = UnitGaussianNormalizer(self.test_set[0])
-        # self.output_normalizer = UnitGaussianNormalizer(self.test_set[1])
 
         self.test_set_normalized = [
             self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1),
-            self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.test_set[2]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
         ]
-
+        a = self.test_set_normalized
         # Change number of workers according to your preference
         num_workers = 0
 

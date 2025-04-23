@@ -746,12 +746,18 @@ match which_example:
         output_tensor = example.u_normalizer.decode(output_tensor)
         prediction_tensor = example.u_normalizer.decode(prediction_tensor)
     case "fhn_1d":
-        import numpy as np
-
-        input_tensor = example.input_normalizer.decode(input_tensor.squeeze())
-        output_tensor = example.output_normalizer.decode(output_tensor.squeeze())
-        prediction_tensor = example.output_normalizer.decode(
-            prediction_tensor.squeeze()
+        input_tensor = example.input_normalizer.decode(input_tensor)
+        output_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            output_tensor[:, :, :, 0]
+        )
+        output_tensor[:, :, :, 1] = example.gating_normalizer.decode(
+            output_tensor[:, :, :, 1]
+        )
+        prediction_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            prediction_tensor[:, :, :, 0]
+        )
+        prediction_tensor[:, :, :, 1] = example.gating_normalizer.decode(
+            prediction_tensor[:, :, :, 1]
         )
 
     case "burgers_zongyi" | "navier_stokes_zongyi":
@@ -800,7 +806,7 @@ test_plot_samples(
     output_tensor,
     prediction_tensor,
     test_relative_l1_tensor,
-    "worst",
+    "random",
     which_example,
     ntest=100,
     str_norm=loss_fn_str,

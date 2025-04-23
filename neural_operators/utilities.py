@@ -121,6 +121,36 @@ def count_weight_params(model):
 
 
 #########################################
+# min max normalization
+#########################################
+class minmaxGlobalNormalizer(object):
+    """
+    Initial normalization is the global min-max normalization over the tensor x
+    """
+
+    def __init__(self, x):
+        self.min = x
+        self.max = x
+        for _ in range(x.dim()):
+            self.min = torch.min(self.min, dim=0).values
+            self.max = torch.max(self.max, dim=0).values
+
+    @jaxtyped(typechecker=beartype)
+    def encode(self, x: Float[Tensor, "n_samples *n"]) -> Float[Tensor, "n_samples *n"]:
+        min_ = self.min.to(x.device)
+        max_ = self.max.to(x.device)
+        x = (x - min_) / (max_ - min_)
+        return x
+
+    @jaxtyped(typechecker=beartype)
+    def decode(self, x: Float[Tensor, "n_samples *n"]) -> Float[Tensor, "n_samples *n"]:
+        min_ = self.min.to(x.device)
+        max_ = self.max.to(x.device)
+        x = x * (max_ - min_) + min_
+        return x
+
+
+#########################################
 # initial normalization
 #########################################
 class UnitGaussianNormalizer(object):
@@ -520,23 +550,26 @@ def plot_data_FHN_1D(
     plotting: bool = False,
 ):
     if normalization:
-        data_plot = example.output_normalizer.decode(data_plot.squeeze(-1))
+        data_plot[:, :, :, 0] = example.voltage_normalizer.decode(data_plot[:, :, :, 0])
+        data_plot[:, :, :, 1] = example.gating_normalizer.decode(data_plot[:, :, :, 1])
 
-    n_idx = data_plot.size(0)
-    fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
-    fig.suptitle(title)
-    ax[0].set(ylabel="y")
-    limits = [0, 1, 0, 40]
-    for i in range(n_idx):
-        ax[i].set_yticklabels([])
-        ax[i].set_xticklabels([])
-        ax[i].set(xlabel="x")
-        im = ax[i].imshow(data_plot[i], extent=limits, aspect="auto")
-        fig.colorbar(im, ax=ax[i])
-    if plotting:
-        plt.show()
-    # save the plot on tensorboard
-    writer.add_figure(title, fig, ep)
+    additive_title = [" V", " w"]
+    for idx in range(data_plot.size(-1)):
+        n_idx = data_plot.size(0)
+        fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+        fig.suptitle(title + additive_title[idx])
+        ax[0].set(ylabel="t")
+        limits = [0, 1, 0, 40]
+        for i in range(n_idx):
+            ax[i].set_yticklabels([])
+            ax[i].set_xticklabels([])
+            ax[i].set(xlabel="x")
+            im = ax[i].imshow(data_plot[i, :, :, idx], extent=limits, aspect="auto")
+            fig.colorbar(im, ax=ax[i])
+        if plotting:
+            plt.show()
+        # save the plot on tensorboard
+        writer.add_figure(title + additive_title[idx], fig, ep)
 
 
 #########################################
@@ -744,6 +777,7 @@ def get_plot_function(
             if "input" in title.lower():
                 return plot_data_diffusion_input
             return plot_data_diffusion
+
         case "fhn_1d":
             if "input" in title.lower():
                 return plot_data_FHN_1D_input
