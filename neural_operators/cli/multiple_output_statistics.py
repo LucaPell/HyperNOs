@@ -463,9 +463,62 @@ print("")
 # #     ["Train error", "Test error"],
 # # )
 
-
 # #########################################
 # # Example 1_bis: boxplot
+# #########################################
+# @jaxtyped(typechecker=beartype)
+# def plot_boxplot(
+#     errors: list[Float[Tensor, "n_samples"]], str_norm: str, legends: list[str] = None
+# ):
+
+#     if legends != None:
+#         assert len(legends) == len(
+#             errors
+#         ), "Legend is not consistent with input errros, have different length."
+
+#         error_np = {}
+#         for legend, error in zip(legends, errors):
+#             error_np[legend] = error.to("cpu").numpy()
+
+#     else:
+#         error_np = [error.to("cpu").numpy() for error in errors]
+
+#     # Set seaborn style for better aesthetics
+#     sns.set(style="white", palette="deep")
+
+#     plt.figure(figsize=(14, 6), layout="constrained")  # 14 for ord
+#     flierprops = dict(
+#         marker="o",
+#         markerfacecolor="red",
+#         markersize=4,
+#         linestyle="none",
+#         markeredgecolor="black",
+#     )
+#     sns.boxplot(error_np, log_scale=True, flierprops=flierprops)
+
+#     # Add labels and title
+#     plt.ylabel("Relative Error", fontsize=18)
+#     plt.xticks(fontsize=18, rotation=90)
+#     plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
+#     plt.ylim(0.0001, 7)
+
+#     # Improve grid and layout
+#     plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
+
+#     # Show the plot
+#     plt.savefig(
+#         f"./{which_example}_boxplot_{str_norm}_componentwise.png",
+#         dpi=300,
+#         bbox_inches="tight",
+#     )
+#     # plt.show()
+
+#     # Resets the style to default
+#     plt.style.use("default")
+
+
+# #########################################
+# # Example 2_bis: boxplot
 # #########################################
 @jaxtyped(typechecker=beartype)
 def plot_boxplot(
@@ -488,34 +541,71 @@ def plot_boxplot(
     sns.set(style="white", palette="deep")
 
     plt.figure(figsize=(14, 6), layout="constrained")  # 14 for ord
-    flierprops = dict(
-        marker="o",
-        markerfacecolor="red",
-        markersize=4,
-        linestyle="none",
-        markeredgecolor="black",
-    )
-    sns.boxplot(error_np, log_scale=True, flierprops=flierprops)
 
+    sns.boxplot(error_np, log_scale=True, showfliers=False)
+
+    #! FHN
+    # plt.axhline(y=0.0087, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    # plt.axhspan(
+    #     ymin=0.0087 - 0.00042,
+    #     ymax=0.0087 + 0.00042,
+    #     color="r",
+    #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    # )
+    # # Add labels and title
+    # plt.ylabel("Relative Error", fontsize=18)
+    # plt.xticks(fontsize=18)
+    # plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.001, 1)
+
+    #! HH
+    plt.axhline(y=0.0234, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    plt.axhspan(
+        ymin=0.0234 - 0.00062,
+        ymax=0.0234 + 0.00062,
+        color="r",
+        alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    )
     # Add labels and title
     plt.ylabel("Relative Error", fontsize=18)
-    plt.xticks(fontsize=18, rotation=90)
-    plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
-    plt.ylim(0.0001, 7)
+    plt.xticks(fontsize=18)
+    plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
+    plt.ylim(0.001, 1)
 
     # Improve grid and layout
     plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
 
-    # Show the plot
-    plt.savefig(
-        f"./{which_example}_boxplot_{str_norm}_componentwise.png",
-        dpi=300,
-        bbox_inches="tight",
-    )
-    # plt.show()
-
     # Resets the style to default
     plt.style.use("default")
+
+    #! ORd
+    # plt.axhline(y=0.0219, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    # plt.axhspan(
+    #     ymin=0.0219 - 0.00004,
+    #     ymax=0.0219 + 0.00004,
+    #     color="r",
+    #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    # )
+    # # Add labels and title
+    # plt.ylabel("Relative Error", fontsize=18)
+    # plt.xticks(fontsize=18)
+    # plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.001, 1)
+
+    # # Improve grid and layout
+    # plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
+
+    # # Show the plot
+    # # plt.savefig(
+    # #     f"./{which_example}_boxplot_{str_norm}_componentwise.png",
+    # #     dpi=300,
+    # #     bbox_inches="tight",
+    # # )
+    # plt.legend()
+    # plt.show()
+
+    # # Resets the style to default
+    # plt.style.use("default")
 
 
 if which_example == "fhn":
@@ -535,7 +625,7 @@ elif which_example == "hh":
             for i in range(test_rel_l2_componentwise.shape[1])
         ],
         "L2",
-        ["V", "m", "h", "n"],
+        ["$V_k$", "m", "h", "n"],
     )
 
 elif which_example == "ord":

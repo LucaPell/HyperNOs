@@ -455,21 +455,21 @@ def validate_epoch(
                 output_pred_batch, output_batch
             ).item()
 
-            # # compute the relative semi-H^1 error and H^1 error
-            # if problem_dim == 1:
-            #     test_relative_semih1 += H1relLoss_1D(1.0, False, 0.0)(
-            #         output_pred_batch, output_batch
-            #     ).item()
-            #     test_relative_h1 += H1relLoss_1D(1.0, False)(
-            #         output_pred_batch, output_batch
-            #     ).item()  # beta = 1.0 in test loss
-            # elif problem_dim == 2:
-            #     test_relative_semih1 += H1relLoss(1.0, False, 0.0)(
-            #         output_pred_batch, output_batch
-            #     ).item()
-            #     test_relative_h1 += H1relLoss(1.0, False)(
-            #         output_pred_batch, output_batch
-            #     ).item()  # beta = 1.0 in test loss
+            # compute the relative semi-H^1 error and H^1 error
+            if problem_dim == 1:
+                test_relative_semih1 += H1relLoss_1D(1.0, False, 0.0)(
+                    output_pred_batch, output_batch
+                ).item()
+                test_relative_h1 += H1relLoss_1D(1.0, False)(
+                    output_pred_batch, output_batch
+                ).item()  # beta = 1.0 in test loss
+            elif problem_dim == 2:
+                test_relative_semih1 += H1relLoss(1.0, False, 0.0)(
+                    output_pred_batch, output_batch
+                ).item()
+                test_relative_h1 += H1relLoss(1.0, False)(
+                    output_pred_batch, output_batch
+                ).item()  # beta = 1.0 in test loss
 
         ## Compute loss on the training set
         for input_batch, output_batch in train_loader:
