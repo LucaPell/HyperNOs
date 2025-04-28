@@ -555,34 +555,15 @@ def plot_boxplot(
     # # Add labels and title
     # plt.ylabel("Relative Error", fontsize=18)
     # plt.xticks(fontsize=18)
-    # plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
-    # plt.ylim(0.001, 1)
+    # plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.0001, 1)
+    # plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
 
     #! HH
-    plt.axhline(y=0.0234, color="r", linestyle="--", linewidth=1.5, label="Test error")
-    plt.axhspan(
-        ymin=0.0234 - 0.00062,
-        ymax=0.0234 + 0.00062,
-        color="r",
-        alpha=0.2,  # Transparency (0=invisible, 1=solid)
-    )
-    # Add labels and title
-    plt.ylabel("Relative Error", fontsize=18)
-    plt.xticks(fontsize=18)
-    plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
-    plt.ylim(0.001, 1)
-
-    # Improve grid and layout
-    plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
-
-    # Resets the style to default
-    plt.style.use("default")
-
-    #! ORd
-    # plt.axhline(y=0.0219, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    # plt.axhline(y=0.0234, color="r", linestyle="--", linewidth=1.5, label="Test error")
     # plt.axhspan(
-    #     ymin=0.0219 - 0.00004,
-    #     ymax=0.0219 + 0.00004,
+    #     ymin=0.0234 - 0.00062,
+    #     ymax=0.0234 + 0.00062,
     #     color="r",
     #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
     # )
@@ -595,15 +576,39 @@ def plot_boxplot(
     # # Improve grid and layout
     # plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
 
+    # # Resets the style to default
+    # plt.style.use("default")
+
+    #! ORd
+    plt.axhline(y=0.0219, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    plt.axhspan(
+        ymin=0.0219 - 0.00004,
+        ymax=0.0219 + 0.00004,
+        color="r",
+        alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    )
+    # Add labels and title
+    plt.ylabel("Relative Error", fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
+    plt.ylim(0.001, 1)
+
+    # Improve grid and layout
+    plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
+
     # # Show the plot
     # # plt.savefig(
     # #     f"./{which_example}_boxplot_{str_norm}_componentwise.png",
     # #     dpi=300,
     # #     bbox_inches="tight",
     # # )
-    # plt.legend()
+    plt.legend()
     # plt.show()
-
+    plt.savefig(
+        f"./{which_example}_boxplot_{str_norm}_componentwise.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
     # # Resets the style to default
     # plt.style.use("default")
 
