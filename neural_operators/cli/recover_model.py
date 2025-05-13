@@ -38,7 +38,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 from beartype import beartype
-from cli.utilities_recover_model import get_tensors, test_fun, test_plot_samples
+from cli.utilities_recover_model import (
+    get_tensors,
+    test_fun,
+    test_plot_samples,
+    test_fun_tensors,
+)
 from CNO import CNO
 from datasets import NO_load_data_model
 from FNO import FNO
@@ -57,11 +62,13 @@ from scipy.io import savemat
 from torch import Tensor
 from utilities import count_params, initialize_hyperparameters
 from wrappers import wrap_model
+import numpy as np
 
 #########################################
 # default values
 #########################################
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 print("Device: ", device)
 # torch.set_default_dtype(torch.float32) # default tensor dtype
 
@@ -95,6 +102,8 @@ def parse_arguments():
             "afieti_homogeneous_neumann",
             "diffusion_reaction",
             "fhn_1d",
+            "diffusion_reaction_grf",
+            "fhn_1d_diff",
         ],
         help="Select the example to run.",
     )
@@ -341,33 +350,45 @@ print("")
     output_tensor,
     prediction_tensor,
 ) = get_tensors(model, test_loader, device)
+
+# (
+#     train_input_tensor,
+#     train_output_tensor,
+#     train_prediction_tensor,
+# ) = get_tensors(model, train_loader, device)
+
 (
-    train_input_tensor,
-    train_output_tensor,
-    train_prediction_tensor,
-) = get_tensors(model, train_loader, device)
+    train_relative_l1_tensor,
+    train_relative_l2_tensor,
+    train_relative_h1_tensor,
+    train_relative_semih1_tensor,
+) = test_fun_tensors(model, train_loader, loss, device, which_example)
+
 
 #########################################
 # Compute mean error and print it
 #########################################
 # Error tensors
-train_relative_l1_tensor = LprelLoss(1, None)(
-    train_output_tensor, train_prediction_tensor
-)
+# train_relative_l1_tensor = LprelLoss(1, None)(
+#     train_output_tensor, train_prediction_tensor
+# )
 test_relative_l1_tensor = LprelLoss(1, None)(output_tensor, prediction_tensor)
 
-train_relative_l2_tensor = LprelLoss(2, None)(
-    train_output_tensor, train_prediction_tensor
-)
+# train_relative_l2_tensor = LprelLoss(2, None)(
+#     train_output_tensor, train_prediction_tensor
+# )
 test_relative_l2_tensor = LprelLoss(2, None)(output_tensor, prediction_tensor)
 
+# np.save("ord_best_500k_train_err_L2.npy", train_relative_l2_tensor.cpu())
+# np.save("ord_best_500k__test_err_L2.npy", test_relative_l2_tensor.cpu())
+
 if problem_dim == 1:
-    train_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
-        train_output_tensor, train_prediction_tensor
-    )
-    train_relative_h1_tensor = H1relLoss_1D(1.0, None)(
-        train_output_tensor, train_prediction_tensor
-    )
+    # train_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
+    #     train_output_tensor, train_prediction_tensor
+    # )
+    # train_relative_h1_tensor = H1relLoss_1D(1.0, None)(
+    #     train_output_tensor, train_prediction_tensor
+    # )
 
     test_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
         output_tensor, prediction_tensor
@@ -375,12 +396,12 @@ if problem_dim == 1:
     test_relative_h1_tensor = H1relLoss_1D(1.0, None)(output_tensor, prediction_tensor)
 
 elif problem_dim == 2:
-    train_relative_semih1_tensor = H1relLoss(1.0, None, 0.0)(
-        train_output_tensor, train_prediction_tensor
-    )
-    train_relative_h1_tensor = H1relLoss(1.0, None)(
-        train_output_tensor, train_prediction_tensor
-    )
+    # train_relative_semih1_tensor = H1relLoss(1.0, None, 0.0)(
+    #     train_output_tensor, train_prediction_tensor
+    # )
+    # train_relative_h1_tensor = H1relLoss(1.0, None)(
+    #     train_output_tensor, train_prediction_tensor
+    # )
 
     test_relative_semih1_tensor = H1relLoss(1.0, None, 0.0)(
         output_tensor, prediction_tensor
@@ -545,6 +566,11 @@ plot_histogram(
     "L2",
     ["Train error", "Test error"],
 )
+# plot_histogram(
+#     [test_relative_l2_tensor],
+#     "L2",
+#     ["Test error"],
+# )
 # plot_histogram(
 #     [train_relative_semih1_tensor, test_relative_semih1_tensor],
 #     "Semi H1",
@@ -759,6 +785,38 @@ match which_example:
         prediction_tensor[:, :, :, 1] = example.gating_normalizer.decode(
             prediction_tensor[:, :, :, 1]
         )
+    case "fhn_1d_diff":
+        input_tensor[:, :, :, 0] = example.I_app_normalizer.decode(
+            input_tensor[:, :, :, 0]
+        )
+        input_tensor[:, :, :, 1] = example.sigma_normalizer.decode(
+            input_tensor[:, :, :, 1]
+        )
+        output_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            output_tensor[:, :, :, 0]
+        )
+        output_tensor[:, :, :, 1] = example.gating_normalizer.decode(
+            output_tensor[:, :, :, 1]
+        )
+        prediction_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            prediction_tensor[:, :, :, 0]
+        )
+        prediction_tensor[:, :, :, 1] = example.gating_normalizer.decode(
+            prediction_tensor[:, :, :, 1]
+        )
+    case "diffusion_reaction_grf":
+        # input_tensor[:, :, :, 0] = example.input_normalizer.decode(
+        #     input_tensor.squeeze()
+        # )
+        # output_tensor[:, :, :, 0] = example.output_normalizer.decode(
+        #     output_tensor[:, :, :].squeeze()
+        # )
+
+        # prediction_tensor[:, :, :, 0] = example.output_normalizer.decode(
+        #     prediction_tensor[:, :, :].squeeze()
+        # )
+
+        pass
 
     case "burgers_zongyi" | "navier_stokes_zongyi":
         pass

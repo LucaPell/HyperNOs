@@ -253,9 +253,9 @@ def test_fun_tensors(
     with torch.no_grad():
         model.eval()
         # initialize the tensors for IO
-        input_tensor = torch.tensor([]).to(device)
-        output_tensor = torch.tensor([]).to(device)
-        prediction_tensor = torch.tensor([]).to(device)
+        # input_tensor = torch.tensor([]).to(device)
+        # output_tensor = torch.tensor([]).to(device)
+        # prediction_tensor = torch.tensor([]).to(device)
         # initialize the tensors for losses
         test_relative_l1_tensor = torch.tensor([]).to(device)
         test_relative_l2_tensor = torch.tensor([]).to(device)
@@ -265,15 +265,15 @@ def test_fun_tensors(
         ## Compute loss on the test set
         for input_batch, output_batch in test_loader:
             input_batch = input_batch.to(device)
-            input_tensor = torch.cat((input_tensor, input_batch), dim=0)
+            # input_tensor = torch.cat((input_tensor, input_batch), dim=0)
 
             output_batch = output_batch.to(device)
-            output_tensor = torch.cat((output_tensor, output_batch), dim=0)
+            # output_tensor = torch.cat((output_tensor, output_batch), dim=0)
 
             # compute the output
             output_pred_batch = model.forward(input_batch)
 
-            prediction_tensor = torch.cat((prediction_tensor, output_pred_batch), dim=0)
+            # prediction_tensor = torch.cat((prediction_tensor, output_pred_batch), dim=0)
 
             # compute the relative L^1 error
             loss_f = LprelLoss(1, None)(output_pred_batch, output_batch)
@@ -322,9 +322,9 @@ def test_fun_tensors(
                 )
 
     return (
-        input_tensor,
-        output_tensor,
-        prediction_tensor,
+        # input_tensor,
+        # output_tensor,
+        # prediction_tensor,
         test_relative_l1_tensor,
         test_relative_l2_tensor,
         test_relative_semih1_tensor,
@@ -1114,6 +1114,101 @@ def plot_fhn_1d(input_tensor, output_tensor, prediction_tensor, idx):
     plt.show()
 
 
+#########################################
+# Plot for the FitzHugh-Nagumo 1D model example diff
+#########################################
+def plot_fhn_1d_diff(input_tensor, output_tensor, prediction_tensor, idx):
+    fig, axs = plt.subplots(8, len(idx), figsize=(16, 12))
+    limits = [0, 1, 0, 40]
+    for i in range(8):
+        for j in range(idx.shape[0]):
+            if i == 0:  # input
+                print(np.shape(input_tensor[idx[j], :, :, 0]))
+                im = axs[i, j].imshow(
+                    input_tensor[idx[j], :, :, 0].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Applied current")
+
+            if i == 1:  # input
+                im = axs[i, j].imshow(
+                    input_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Sigma")
+
+            elif i == 2:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 0].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Voltage")
+
+            elif i == 3:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 0].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO Voltage")
+
+            elif i == 4:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Voltage point wise error")
+
+            elif i == 5:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Recovery")
+
+            elif i == 6:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO Recovery")
+
+            elif i == 7:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Recovery point wise error")
+
+            axs[i, j].set_yticklabels([])
+            axs[i, j].set_xticklabels([])
+            # axs[i, j].set_xlabel('x')
+
+    plt.tight_layout()
+    plt.show()
+
+
 @jaxtyped(typechecker=beartype)
 def test_plot_samples(
     input_tensor: Float[Tensor, "n_samples *n in_dim"],
@@ -1177,5 +1272,10 @@ def test_plot_samples(
             plot_ord(input_tensor, output_tensor, prediction_tensor, idx)
         case "fhn_1d":
             plot_fhn_1d(input_tensor, output_tensor, prediction_tensor, idx)
+        case "diffusion_reaction_grf":
+            plot_darcy(input_tensor, output_tensor, prediction_tensor, idx)
+        case "fhn_1d_diff":
+            plot_fhn_1d_diff(input_tensor, output_tensor, prediction_tensor, idx)
+
         case _:
             raise ValueError(f"Unsupported example type: {which_example}.")

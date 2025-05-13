@@ -49,6 +49,7 @@ from loss_fun import (
     LprelLoss_multiout,
     loss_selector,
 )
+import numpy as np
 from ResNet import ResidualNetwork
 from scipy.io import savemat
 from torch import Tensor
@@ -59,6 +60,7 @@ from wrappers import wrap_model
 # default values
 #########################################
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = "cpu"
 print("Device: ", device)
 # torch.set_default_dtype(torch.float32) # default tensor dtype
 
@@ -125,7 +127,19 @@ def parse_arguments():
         default=True,
         help="For the datasets that are supported you can select if the test set is in-distribution or out-of-distribution.",
     )
-
+    # plt.axhline(y=0.0087, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    # plt.axhspan(
+    #     ymin=0.0087 - 0.00042,
+    #     ymax=0.0087 + 0.00042,
+    #     color="r",
+    #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    # )
+    # # Add labels and title
+    # plt.ylabel("Relative Error", fontsize=18)
+    # plt.xticks(fontsize=18)
+    # plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.0001, 1)
+    #
     args = parser.parse_args()
 
     return {
@@ -542,21 +556,20 @@ def plot_boxplot(
 
     plt.figure(figsize=(14, 6), layout="constrained")  # 14 for ord
 
-    sns.boxplot(error_np, log_scale=True, showfliers=False)
+    sns.boxplot(error_np, log_scale=True, showfliers=False, width=0.2)
 
     #! FHN
-    # plt.axhline(y=0.0087, color="r", linestyle="--", linewidth=1.5, label="Test error")
-    # plt.axhspan(
-    #     ymin=0.0087 - 0.00042,
-    #     ymax=0.0087 + 0.00042,
-    #     color="r",
-    #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
-    # )
-    # # Add labels and title
-    # plt.ylabel("Relative Error", fontsize=18)
-    # plt.xticks(fontsize=18)
-    # plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
-    # plt.ylim(0.0001, 1)
+    plt.axhline(y=0.0087, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    plt.axhspan(
+        ymin=0.0087 - 0.00042,
+        ymax=0.0087 + 0.00042,
+        color="r",
+        alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    )
+    # Add labels and title
+    plt.ylabel("Relative Error", fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.ylim(0.0001, 1)
     # plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
 
     #! HH
@@ -570,8 +583,8 @@ def plot_boxplot(
     # # Add labels and title
     # plt.ylabel("Relative Error", fontsize=18)
     # plt.xticks(fontsize=18)
-    # plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
-    # plt.ylim(0.001, 1)
+    # plt.yticks([0.0001, 0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.0001, 1)
 
     # # Improve grid and layout
     # plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
@@ -580,18 +593,18 @@ def plot_boxplot(
     # plt.style.use("default")
 
     #! ORd
-    plt.axhline(y=0.0219, color="r", linestyle="--", linewidth=1.5, label="Test error")
-    plt.axhspan(
-        ymin=0.0219 - 0.00004,
-        ymax=0.0219 + 0.00004,
-        color="r",
-        alpha=0.2,  # Transparency (0=invisible, 1=solid)
-    )
-    # Add labels and title
-    plt.ylabel("Relative Error", fontsize=18)
-    plt.xticks(fontsize=18)
-    plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
-    plt.ylim(0.001, 1)
+    # plt.axhline(y=0.0219, color="r", linestyle="--", linewidth=1.5, label="Test error")
+    # plt.axhspan(
+    #     ymin=0.0219 - 0.00004,
+    #     ymax=0.0219 + 0.00004,
+    #     color="r",
+    #     alpha=0.2,  # Transparency (0=invisible, 1=solid)
+    # )
+    # # Add labels and title
+    # plt.ylabel("Relative Error", fontsize=18)
+    # plt.xticks(fontsize=18)
+    # plt.yticks([0.001, 0.01, 0.1, 1], fontsize=18)
+    # plt.ylim(0.001, 1)
 
     # Improve grid and layout
     plt.grid(True, which="both", ls="-", alpha=0.1, color="black")
@@ -622,6 +635,7 @@ if which_example == "fhn":
         "L2",
         ["V", "w"],
     )
+    np.save("test_err_fhn.npy", test_rel_l2_componentwise.cpu())
 
 elif which_example == "hh":
     plot_boxplot(
@@ -675,6 +689,8 @@ elif which_example == "ord":
         38,
         39,
         40,
+        41,
+        42,
     ]
     field_name = [
         "V",

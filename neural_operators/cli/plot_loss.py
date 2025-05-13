@@ -145,12 +145,12 @@ def plot_loss_curves(
 
 if __name__ == "__main__":
 
-    example = "hh"  # select the example
+    example = "ord"  # select the example
     mode = "best_500k"  # select the mode of the test (best or best_500k)
     title = "Unconstrained optimization"  # select the title of the figure
     fontsize = 14
     example2name = {"fhn": "FitzHughNagumo", "hh": "HodgkinHuxley", "ord": "OHaraRudy"}
-    example2min = {"fhn": 2e-3, "hh": 8e-3, "ord": 5e-2}
+    example2min = {"fhn": 2e-3, "hh": 8e-3, "ord": 1e-2}
     example2max = {"fhn": 1.5, "hh": 1.5, "ord": 1.5}
 
     train_files = [

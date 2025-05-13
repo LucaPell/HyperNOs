@@ -573,6 +573,73 @@ def plot_data_FHN_1D(
 
 
 #########################################
+# Function to plot the data for the FHN 1D with sigma diff
+#########################################
+def plot_data_FHN_1D_diff_input(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot[:, :, :, 0] = example.I_app_normalizer.decode(data_plot[:, :, :, 0])
+        data_plot[:, :, :, 1] = example.sigma_normalizer.decode(data_plot[:, :, :, 1])
+
+    additive_title = ["I_app", " sigma"]
+    for idx in range(data_plot.size(-1)):
+        n_idx = data_plot.size(0)
+        fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+        fig.suptitle(title + additive_title[idx])
+        ax[0].set(ylabel="t")
+        limits = [0, 1, 0, 40]
+        for i in range(n_idx):
+            ax[i].set_yticklabels([])
+            ax[i].set_xticklabels([])
+            ax[i].set(xlabel="x")
+            im = ax[i].imshow(data_plot[i, :, :, idx], extent=limits, aspect="auto")
+            fig.colorbar(im, ax=ax[i])
+        if plotting:
+            plt.show()
+        # save the plot on tensorboard
+        writer.add_figure(title + additive_title[idx], fig, ep)
+
+
+def plot_data_FHN_1D_diff(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot[:, :, :, 0] = example.voltage_normalizer.decode(data_plot[:, :, :, 0])
+        data_plot[:, :, :, 1] = example.gating_normalizer.decode(data_plot[:, :, :, 1])
+
+    additive_title = ["V", " w"]
+    for idx in range(data_plot.size(-1)):
+        n_idx = data_plot.size(0)
+        fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+        fig.suptitle(title + additive_title[idx])
+        ax[0].set(ylabel="t")
+        limits = [0, 1, 0, 40]
+        for i in range(n_idx):
+            ax[i].set_yticklabels([])
+            ax[i].set_xticklabels([])
+            ax[i].set(xlabel="x")
+            im = ax[i].imshow(data_plot[i, :, :, idx], extent=limits, aspect="auto")
+            fig.colorbar(im, ax=ax[i])
+        if plotting:
+            plt.show()
+        # save the plot on tensorboard
+        writer.add_figure(title + additive_title[idx], fig, ep)
+
+
+#########################################
 # Function to plot the data for all the Mishra's example
 #########################################
 def plot_data_diffusion_input(
@@ -778,10 +845,19 @@ def get_plot_function(
                 return plot_data_diffusion_input
             return plot_data_diffusion
 
+        case "diffusion_reaction_grf":
+            if "input" in title.lower():
+                return plot_data_diffusion_input
+            return plot_data_diffusion
+
         case "fhn_1d":
             if "input" in title.lower():
                 return plot_data_FHN_1D_input
             return plot_data_FHN_1D
+        case "fhn_1d_diff":
+            if "input" in title.lower():
+                return plot_data_FHN_1D_diff_input
+            return plot_data_FHN_1D_diff
 
     if which_example in [
         "poisson",

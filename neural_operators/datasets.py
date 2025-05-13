@@ -65,6 +65,8 @@ def NO_load_data_model(
         ###
         "diffusion_reaction": Diffusion_reaction,
         "fhn_1d": FitzHughNagumo_1D,
+        "fhn_1d_diff": FitzHughNagumo_1D_diff,
+        "diffusion_reaction_grf": Diffusion_reaction_grf,
     }
 
     # Define additional parameters for specific cases
@@ -291,6 +293,174 @@ class Diffusion_reaction:
 
 
 #########################################
+# Basic example diffusion reaction -div(sigma*grad(u)) + u^3 = f
+########################################
+
+
+class Diffusion_reaction_grf:
+    def __init__(
+        self,
+        network_properties,
+        batch_size,
+        training_samples,
+        s=100,
+        in_dist=True,
+        search_path="~/Dottorato/SciML/FNO/HyperNOs/data/diffusion_reaction/",
+    ):
+        assert in_dist == True
+        self.s = s
+        self.s_in = s
+        self.s_out = s
+
+        # Fix the seed
+        g = torch.Generator()
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        ##############
+        # Training
+        ##############
+        # search the file
+        file_location_trainig = find_file(
+            "diffusion_reaction_training.pkl", search_path
+        )  # In-distribution file 64x64
+
+        # load the dataset
+        file_training = open(file_location_trainig, "rb")
+        dataset_training = pickle.load(file_training)
+        file_training.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        dataset_input_training = dataset_training["input"]
+        dataset_solution_training = torch.tensor(
+            dataset_training["solution"], dtype=torch.float32
+        )
+
+        input_training = torch.tensor(dataset_input_training, dtype=torch.float32)
+        # Divide in train/val/test
+        self.train_set = [
+            input_training[:, :, :],
+            dataset_solution_training[:, :, :],
+        ]
+
+        self.input_normalizer = UnitGaussianNormalizer(self.train_set[0])
+        self.output_normalizer = UnitGaussianNormalizer(self.train_set[1])
+
+        # self.train_set_normalized = [
+        #     self.input_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+        #     self.output_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+        # ]
+        self.train_set_normalized = [
+            self.train_set[0].unsqueeze(-1),
+            self.train_set[1].unsqueeze(-1),
+        ]
+
+        ##############
+        # Validation
+        ##############
+        file_location_val = find_file(
+            "diffusion_reaction_validation.pkl", search_path
+        )  # In-distribution file 64x64
+
+        # load the dataset
+        file_val = open(file_location_val, "rb")
+        dataset_val = pickle.load(file_val)
+        file_val.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        dataset_input_val = dataset_val["input"]
+        dataset_solution_val = torch.tensor(
+            dataset_val["solution"], dtype=torch.float32
+        )
+
+        input_val = torch.tensor(dataset_input_val, dtype=torch.float32)
+
+        # Divide in val/val/test
+        self.val_set = [
+            input_val[:, :, :],
+            dataset_solution_val[:, :, :],
+        ]
+
+        # self.val_set_normalized = [
+        #     self.input_normalizer.encode(self.val_set[0]).unsqueeze(-1),
+        #     self.output_normalizer.encode(self.val_set[1]).unsqueeze(-1),
+        # ]
+
+        self.val_set_normalized = [
+            self.val_set[0].unsqueeze(-1),
+            self.val_set[1].unsqueeze(-1),
+        ]
+
+        ##############
+        # test
+        ##############
+        file_location_test = find_file(
+            "diffusion_reaction_test.pkl", search_path
+        )  # In-distribution file 64x64
+
+        # load the dataset
+        file_test = open(file_location_test, "rb")
+        dataset_test = pickle.load(file_test)
+        file_test.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        dataset_input_test = dataset_test["input"]
+        dataset_solution_test = torch.tensor(
+            dataset_test["solution"], dtype=torch.float32
+        )
+        input_test = torch.tensor(dataset_input_test, dtype=torch.float32)
+        # Divide in test/test/test
+        self.test_set = [
+            input_test[:, :, :],
+            dataset_solution_test[:, :, :],
+        ]
+
+        # self.test_set_normalized = [
+        #     self.input_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+        #     self.output_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+        # ]
+
+        self.test_set_normalized = [
+            self.test_set[0].unsqueeze(-1),
+            self.test_set[1].unsqueeze(-1),
+        ]
+
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(*self.train_set_normalized),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(*self.val_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(*self.test_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+
+
+#########################################
 # FitzHugh-Nagumo 1D
 ########################################
 
@@ -303,7 +473,7 @@ class FitzHughNagumo_1D:
         training_samples,
         s=100,
         in_dist=True,
-        search_path="~/Dottorato/firedrake/datasets/script/",
+        search_path="~/Dottorato/SciML/FNO/HyperNOs/data/fhd_1d",
     ):
         assert in_dist == True
         self.s = s
@@ -429,6 +599,205 @@ class FitzHughNagumo_1D:
                 (
                     self.voltage_normalizer.encode(self.test_set[1]).unsqueeze(-1),
                     self.gating_normalizer.encode(self.test_set[2]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+        a = self.test_set_normalized
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(*self.train_set_normalized),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(*self.validation_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(*self.test_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+
+
+#########################################
+# FitzHugh-Nagumo 1D diff
+########################################
+
+
+class FitzHughNagumo_1D_diff:
+    def __init__(
+        self,
+        network_properties,
+        batch_size,
+        training_samples,
+        s=100,
+        in_dist=True,
+        search_path="/home/luca/Dottorato/SciML/FNO/HyperNOs/data/fhn_1d",
+    ):
+        assert in_dist == True
+        self.s = s
+        self.s_in = s
+        self.s_out = s
+
+        # Fix the seed
+        g = torch.Generator()
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        ##############
+        # Training
+        ##############
+        file_location_training = find_file("fhn_1d_training.pkl", search_path)
+
+        # load the dataset
+        file_training = open(file_location_training, "rb")
+        dataset_training = pickle.load(file_training)
+        file_training.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_training = torch.tensor(dataset_training["I_app"], dtype=torch.float32)
+        sigma_training = torch.tensor(dataset_training["sigma"], dtype=torch.float32)
+
+        voltage_training = torch.tensor(
+            dataset_training["Voltage"], dtype=torch.float32
+        )
+        gating_training = torch.tensor(dataset_training["gating"], dtype=torch.float32)
+
+        self.train_set = [
+            I_app_training[:, :, :],
+            sigma_training[:, :, :],
+            voltage_training[:, :, :],
+            gating_training[:, :, :],
+        ]
+
+        self.I_app_normalizer = minmaxGlobalNormalizer(I_app_training)
+        self.sigma_normalizer = minmaxGlobalNormalizer(sigma_training)
+        self.voltage_normalizer = minmaxGlobalNormalizer(voltage_training)
+        self.gating_normalizer = minmaxGlobalNormalizer(gating_training)
+
+        self.train_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.train_set[2]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.train_set[3]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+
+        ##############
+        # validation
+        ##############
+        file_location_validation = find_file("fhn_1d_validation.pkl", search_path)
+
+        # load the dataset
+        file_validation = open(file_location_validation, "rb")
+        dataset_validation = pickle.load(file_validation)
+        file_validation.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_validation = torch.tensor(
+            dataset_validation["I_app"], dtype=torch.float32
+        )
+        sigma_validation = torch.tensor(
+            dataset_validation["sigma"], dtype=torch.float32
+        )
+
+        voltage_validation = torch.tensor(
+            dataset_validation["Voltage"], dtype=torch.float32
+        )
+        gating_validation = torch.tensor(
+            dataset_validation["gating"], dtype=torch.float32
+        )
+
+        self.validation_set = [
+            I_app_validation[:, :, :],
+            sigma_validation[:, :, :],
+            voltage_validation[:, :, :],
+            gating_validation[:, :, :],
+        ]
+
+        self.validation_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.validation_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.validation_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.validation_set[2]).unsqueeze(
+                        -1
+                    ),
+                    self.gating_normalizer.encode(self.validation_set[3]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+
+        ##############
+        # test
+        ##############
+        file_location_test = find_file("fhn_1d_test.pkl", search_path)
+
+        # load the dataset
+        file_test = open(file_location_test, "rb")
+        dataset_test = pickle.load(file_test)
+        file_test.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_test = torch.tensor(dataset_test["I_app"], dtype=torch.float32)
+        sigma_test = torch.tensor(dataset_test["sigma"], dtype=torch.float32)
+        voltage_test = torch.tensor(dataset_test["Voltage"], dtype=torch.float32)
+        gating_test = torch.tensor(dataset_test["gating"], dtype=torch.float32)
+
+        self.test_set = [
+            I_app_test[:, :, :],
+            sigma_test[:, :, :],
+            voltage_test[:, :, :],
+            gating_test[:, :, :],
+        ]
+
+        self.test_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.test_set[2]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.test_set[3]).unsqueeze(-1),
                 ),
                 dim=-1,
             ),

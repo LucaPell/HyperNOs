@@ -95,4 +95,4 @@ def train_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
 
 
 if __name__ == "__main__":
-    train_cno("fhn_1d", "default", "L1")
+    train_cno("fhn_1d_diff", "default", "L1")
