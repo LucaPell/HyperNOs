@@ -14,7 +14,7 @@
 	"cno_architecture": {
 		"in_dim": 2,
 		"out_dim": 2,
-		"in_size": 100,
+		"in_size": 25,
 		"N_layers": 3,
 		"channel_multiplier": 32,
 		"N_res_neck": 6,

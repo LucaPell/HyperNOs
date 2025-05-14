@@ -644,7 +644,7 @@ class FitzHughNagumo_1D_diff:
         network_properties,
         batch_size,
         training_samples,
-        s=100,
+        s=25,
         in_dist=True,
         search_path="/home/luca/Dottorato/SciML/FNO/HyperNOs/data/fhn_1d",
     ):
