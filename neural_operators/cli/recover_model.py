@@ -68,7 +68,7 @@ import numpy as np
 # default values
 #########################################
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device("cpu")
+device = torch.device("cpu")
 print("Device: ", device)
 # torch.set_default_dtype(torch.float32) # default tensor dtype
 
@@ -104,6 +104,7 @@ def parse_arguments():
             "fhn_1d",
             "diffusion_reaction_grf",
             "fhn_1d_diff",
+            "hh_1d",
         ],
         help="Select the example to run.",
     )
@@ -484,12 +485,12 @@ elif which_example in ["crosstruss"]:
 # Time for evaluation
 #########################################
 # evaluation of all the test set
-t_1 = time.time()
-with torch.no_grad():
-    _ = model(input_tensor)
-t_2 = time.time()
-print(f"Time for evaluation of {input_tensor.shape[0]} solutions is: ", t_2 - t_1)
-
+# t_1 = time.time()
+# with torch.no_grad():
+#     _ = model(input_tensor)
+# t_2 = time.time()
+# print(f"Time for evaluation of {input_tensor.shape[0]} solutions is: ", t_2 - t_1)
+#
 # evaluation of one solution
 ex = input_tensor[[0], ...]
 t_1 = time.time()
@@ -784,6 +785,32 @@ match which_example:
         )
         prediction_tensor[:, :, :, 1] = example.gating_normalizer.decode(
             prediction_tensor[:, :, :, 1]
+        )
+    case "hh_1d":
+        input_tensor = example.input_normalizer.decode(input_tensor)
+        output_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            output_tensor[:, :, :, 0]
+        )
+        output_tensor[:, :, :, 1] = example.m_normalizer.decode(
+            output_tensor[:, :, :, 1]
+        )
+        output_tensor[:, :, :, 2] = example.h_normalizer.decode(
+            output_tensor[:, :, :, 2]
+        )
+        output_tensor[:, :, :, 3] = example.n_normalizer.decode(
+            output_tensor[:, :, :, 3]
+        )
+        prediction_tensor[:, :, :, 0] = example.voltage_normalizer.decode(
+            prediction_tensor[:, :, :, 0]
+        )
+        prediction_tensor[:, :, :, 1] = example.m_normalizer.decode(
+            prediction_tensor[:, :, :, 1]
+        )
+        prediction_tensor[:, :, :, 2] = example.h_normalizer.decode(
+            prediction_tensor[:, :, :, 2]
+        )
+        prediction_tensor[:, :, :, 3] = example.n_normalizer.decode(
+            prediction_tensor[:, :, :, 3]
         )
     case "fhn_1d_diff":
         input_tensor[:, :, :, 0] = example.I_app_normalizer.decode(

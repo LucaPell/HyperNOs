@@ -1209,6 +1209,146 @@ def plot_fhn_1d_diff(input_tensor, output_tensor, prediction_tensor, idx):
     plt.show()
 
 
+#########################################
+# Plot for the Hodgkin-Huxley 1D model example
+#########################################
+def plot_hh_1d(input_tensor, output_tensor, prediction_tensor, idx):
+    fig, axs = plt.subplots(13, len(idx), figsize=(16, 12))
+    limits = [0, 1, 0, 30]
+    for i in range(13):
+        for j in range(idx.shape[0]):
+            if i == 0:  # input
+                im = axs[i, j].imshow(
+                    input_tensor[idx[j], :, :].squeeze(), extent=limits, aspect="auto"
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Applied current")
+
+            elif i == 1:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 0].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Voltage")
+
+            elif i == 2:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 0].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO Voltage")
+
+            elif i == 3:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("Voltage point wise error")
+
+            elif i == 4:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("m")
+
+            elif i == 5:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO m")
+
+            elif i == 6:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("m point wise error")
+
+            elif i == 7:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("h")
+
+            elif i == 8:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO h")
+
+            elif i == 9:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("h point wise error")
+
+            elif i == 10:  # output x
+                im = axs[i, j].imshow(
+                    output_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("n")
+
+            elif i == 11:  # predicted x
+                im = axs[i, j].imshow(
+                    prediction_tensor[idx[j], :, :, 1].squeeze(),
+                    extent=limits,
+                    aspect="auto",
+                )
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("FNO n")
+
+            elif i == 12:  # error x
+                error = torch.abs(
+                    output_tensor[idx[j], :, :, 1] - prediction_tensor[idx[j], :, :, 1]
+                )
+                im = axs[i, j].imshow(error.squeeze(), aspect="auto")
+                fig.colorbar(im, ax=axs[i, j])
+                if j == 0:
+                    axs[i, j].set_ylabel("n point wise error")
+
+            axs[i, j].set_yticklabels([])
+            axs[i, j].set_xticklabels([])
+            # axs[i, j].set_xlabel('x')
+
+    plt.tight_layout()
+    plt.show()
+
+
 @jaxtyped(typechecker=beartype)
 def test_plot_samples(
     input_tensor: Float[Tensor, "n_samples *n in_dim"],
@@ -1276,6 +1416,8 @@ def test_plot_samples(
             plot_darcy(input_tensor, output_tensor, prediction_tensor, idx)
         case "fhn_1d_diff":
             plot_fhn_1d_diff(input_tensor, output_tensor, prediction_tensor, idx)
+        case "hh_1d":
+            plot_hh_1d(input_tensor, output_tensor, prediction_tensor, idx)
 
         case _:
             raise ValueError(f"Unsupported example type: {which_example}.")

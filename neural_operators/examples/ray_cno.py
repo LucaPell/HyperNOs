@@ -103,9 +103,9 @@ def ray_cno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
         loss_fn,
         default_hyper_params,
         runs_per_cpu=8.0,
-        runs_per_gpu=0.5,
+        runs_per_gpu=1,
     )
 
 
 if __name__ == "__main__":
-    ray_cno("darcy", "default", "L1")
+    ray_cno("fhn_1d_diff", "default", "L1")

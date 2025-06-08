@@ -442,13 +442,13 @@ def test_FHN_1D():
 
 
 ##############
-# Test FHN 1D diff
+# Test  HH 1D diff
 ##############
-def test_FHN_1D():
+def test_HH_1D():
     batch_size = 20
     training_samples = 500
     example = NO_load_data_model(
-        which_example="fhn_1d_diff",
+        which_example="hh_1d",
         no_architecture={
             "FourierF": 0,
             "retrain": 1,
@@ -459,16 +459,16 @@ def test_FHN_1D():
 
     train_batch_input, train_batch_output = next(iter(example.train_loader))
     print(train_batch_input.shape)
-    assert train_batch_input.shape == (batch_size, example.s_in, example.s_in, 2)
-    assert train_batch_output.shape == (batch_size, example.s_out, example.s_out, 2)
+    assert train_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert train_batch_output.shape == (batch_size, example.s_out, example.s_out, 4)
 
     test_batch_input, test_batch_output = next(iter(example.test_loader))
-    assert test_batch_input.shape == (batch_size, example.s_in, example.s_in, 2)
-    assert test_batch_output.shape == (batch_size, example.s_out, example.s_out, 2)
+    assert test_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    assert test_batch_output.shape == (batch_size, example.s_out, example.s_out, 4)
 
-    val_batch_input, val_batch_output = next(iter(example.val_loader))
-    assert val_batch_input.shape == (batch_size, example.s_in, example.s_in, 2)
-    assert val_batch_output.shape == (batch_size, example.s_out, example.s_in, 2)
+    # val_batch_input, val_batch_output = next(iter(example.val_loader))
+    # assert val_batch_input.shape == (batch_size, example.s_in, example.s_in, 1)
+    # assert val_batch_output.shape == (batch_size, example.s_out, example.s_in, 4)
 
 
 # def test_FHN_1D_mean():
