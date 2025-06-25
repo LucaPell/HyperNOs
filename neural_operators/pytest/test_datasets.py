@@ -471,6 +471,32 @@ def test_HH_1D():
     # assert val_batch_output.shape == (batch_size, example.s_out, example.s_in, 4)
 
 
+##############
+# Test Helmotz 1D
+##############
+def test_Helmotz_1D():
+    batch_size = 32
+    training_samples = 34000
+    example = NO_load_data_model(
+        which_example="Helmotz_1D",
+        no_architecture={
+            "FourierF": 0,
+            "retrain": 1,
+        },
+        batch_size=batch_size,
+        training_samples=training_samples,
+    )
+
+    train_batch_input, train_batch_output = next(iter(example.train_loader))
+    print(train_batch_input.shape)
+    assert train_batch_input.shape == (batch_size, example.s_in, 2)
+    assert train_batch_output.shape == (batch_size, example.s_out, 1)
+
+    test_batch_input, test_batch_output = next(iter(example.test_loader))
+    assert test_batch_input.shape == (batch_size, example.s_in, 2)
+    assert test_batch_output.shape == (batch_size, example.s_out, 1)
+
+
 # def test_FHN_1D_mean():
 #     batch_size = 500
 #     training_samples = 500

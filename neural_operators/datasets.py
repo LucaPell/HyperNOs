@@ -62,12 +62,13 @@ def NO_load_data_model(
         ###
         "crosstruss": CrossTruss,
         "stiffness_matrix": StiffnessMatrix,
-        ###
+        ###luca
         "diffusion_reaction": Diffusion_reaction,
         "fhn_1d": FitzHughNagumo_1D,
         "hh_1d": HodgkinHuxley_1D,
         "fhn_1d_diff": FitzHughNagumo_1D_diff,
         "diffusion_reaction_grf": Diffusion_reaction_grf,
+        "Helmotz_1D": Helmotz_1D,
     }
 
     # Define additional parameters for specific cases
@@ -1025,6 +1026,354 @@ class HodgkinHuxley_1D:
         )
 
 
+##########################################
+#  Helmotz 1D
+########################################
+
+
+class Helmotz_1D:
+    def __init__(
+        self,
+        network_properties,
+        batch_size,
+        training_samples,
+        s=31,
+        in_dist=True,
+        search_path="~/Dottorato/SciML/FNO/HyperNOs/data/Helmotz_1D/",
+    ):
+        assert in_dist == True
+        self.s = s
+        self.s_in = s
+        self.s_out = s
+
+        # Fix the seed
+        g = torch.Generator()
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        file = find_file("processed_data_1H.pkl", search_path)
+        file_open = open(file, "rb")
+        dataset = pickle.load(file_open)
+        file_open.close()
+
+        ##############
+        # Training
+        ##############
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        k_training = torch.tensor(dataset["k_train"], dtype=torch.float32)
+        f_training = torch.tensor(dataset["f_train"], dtype=torch.float32)
+
+        u_training = torch.tensor(dataset["u_train"], dtype=torch.float32)
+
+        self.train_set = [
+            k_training[:, :],
+            f_training[:, :],
+            u_training[:, :],
+        ]
+        self.k_normalizer = UnitGaussianNormalizer(k_training)
+        self.f_normalizer = UnitGaussianNormalizer(f_training)
+        self.u_normalizer = UnitGaussianNormalizer(u_training)
+
+        self.train_set_normalized = [
+            torch.concatenate(
+                (
+                    self.k_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+                    self.f_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            self.u_normalizer.encode(self.train_set[2]).unsqueeze(-1),
+        ]
+
+        ##############
+        # validation
+        ##############
+        k_val = torch.tensor(dataset["k_test"], dtype=torch.float32)
+        f_val = torch.tensor(dataset["f_test"], dtype=torch.float32)
+
+        u_val = torch.tensor(dataset["u_test"], dtype=torch.float32)
+
+        self.val_set = [
+            k_val[:, :],
+            f_val[:, :],
+            u_val[:, :],
+        ]
+
+        self.val_set_normalized = [
+            torch.concatenate(
+                (
+                    self.k_normalizer.encode(self.val_set[0]).unsqueeze(-1),
+                    self.f_normalizer.encode(self.val_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            self.u_normalizer.encode(self.val_set[2]).unsqueeze(-1),
+        ]
+
+        ##############
+        # test
+        ##############
+        k_test = torch.tensor(dataset["k_test"], dtype=torch.float32)
+        f_test = torch.tensor(dataset["f_test"], dtype=torch.float32)
+
+        u_test = torch.tensor(dataset["u_test"], dtype=torch.float32)
+
+        self.test_set = [
+            k_test[:, :],
+            f_test[:, :],
+            u_test[:, :],
+        ]
+
+        self.test_set_normalized = [
+            torch.concatenate(
+                (
+                    self.k_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+                    self.f_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            self.u_normalizer.encode(self.test_set[2]).unsqueeze(-1),
+        ]
+
+        a = self.test_set_normalized
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(*self.train_set_normalized),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(*self.val_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(*self.test_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+
+
+#########################################
+# FitzHugh-Nagumo 1D diff
+########################################
+
+
+class FitzHughNagumo_1D_diff:
+    def __init__(
+        self,
+        network_properties,
+        batch_size,
+        training_samples,
+        s=100,
+        in_dist=True,
+        search_path="/home/luca/Dottorato/SciML/FNO/HyperNOs/data/fhn_1d_diff",
+    ):
+        assert in_dist == True
+        self.s = s
+        self.s_in = s
+        self.s_out = s
+
+        # Fix the seed
+        g = torch.Generator()
+        retrain = network_properties["retrain"]
+        if retrain > 0:
+            os.environ["PYTHONHASHSEED"] = str(retrain)
+            random.seed(retrain)
+            np.random.seed(retrain)
+            torch.manual_seed(retrain)
+            torch.cuda.manual_seed(retrain)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            # torch.use_deterministic_algorithms(True)
+            g.manual_seed(retrain)
+
+        ##############
+        # Training
+        ##############
+        file_location_training = find_file("fhn_1d_training.pkl", search_path)
+
+        # load the dataset
+        file_training = open(file_location_training, "rb")
+        dataset_training = pickle.load(file_training)
+        file_training.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_training = torch.tensor(dataset_training["I_app"], dtype=torch.float32)
+        sigma_training = torch.tensor(dataset_training["sigma"], dtype=torch.float32)
+
+        voltage_training = torch.tensor(
+            dataset_training["Voltage"], dtype=torch.float32
+        )
+        gating_training = torch.tensor(dataset_training["gating"], dtype=torch.float32)
+
+        self.train_set = [
+            I_app_training[:, :, :],
+            sigma_training[:, :, :],
+            voltage_training[:, :, :],
+            gating_training[:, :, :],
+        ]
+
+        self.I_app_normalizer = minmaxGlobalNormalizer(I_app_training)
+        self.sigma_normalizer = minmaxGlobalNormalizer(sigma_training)
+        self.voltage_normalizer = minmaxGlobalNormalizer(voltage_training)
+        self.gating_normalizer = minmaxGlobalNormalizer(gating_training)
+
+        self.train_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.train_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.train_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.train_set[2]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.train_set[3]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+
+        ##############
+        # validation
+        ##############
+        file_location_validation = find_file("fhn_1d_validation.pkl", search_path)
+
+        # load the dataset
+        file_validation = open(file_location_validation, "rb")
+        dataset_validation = pickle.load(file_validation)
+        file_validation.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_validation = torch.tensor(
+            dataset_validation["I_app"], dtype=torch.float32
+        )
+        sigma_validation = torch.tensor(
+            dataset_validation["sigma"], dtype=torch.float32
+        )
+
+        voltage_validation = torch.tensor(
+            dataset_validation["Voltage"], dtype=torch.float32
+        )
+        gating_validation = torch.tensor(
+            dataset_validation["gating"], dtype=torch.float32
+        )
+
+        self.validation_set = [
+            I_app_validation[:, :, :],
+            sigma_validation[:, :, :],
+            voltage_validation[:, :, :],
+            gating_validation[:, :, :],
+        ]
+
+        self.validation_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.validation_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.validation_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.validation_set[2]).unsqueeze(
+                        -1
+                    ),
+                    self.gating_normalizer.encode(self.validation_set[3]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+
+        ##############
+        # test
+        ##############
+        file_location_test = find_file("fhn_1d_test.pkl", search_path)
+
+        # load the dataset
+        file_test = open(file_location_test, "rb")
+        dataset_test = pickle.load(file_test)
+        file_test.close()
+        # transform the input from [n_example] to [n_example,n_pts,n_pts]
+        I_app_test = torch.tensor(dataset_test["I_app"], dtype=torch.float32)
+        sigma_test = torch.tensor(dataset_test["sigma"], dtype=torch.float32)
+        voltage_test = torch.tensor(dataset_test["Voltage"], dtype=torch.float32)
+        gating_test = torch.tensor(dataset_test["gating"], dtype=torch.float32)
+
+        self.test_set = [
+            I_app_test[:, :, :],
+            sigma_test[:, :, :],
+            voltage_test[:, :, :],
+            gating_test[:, :, :],
+        ]
+
+        self.test_set_normalized = [
+            torch.concatenate(
+                (
+                    self.I_app_normalizer.encode(self.test_set[0]).unsqueeze(-1),
+                    self.sigma_normalizer.encode(self.test_set[1]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+            torch.concatenate(
+                (
+                    self.voltage_normalizer.encode(self.test_set[2]).unsqueeze(-1),
+                    self.gating_normalizer.encode(self.test_set[3]).unsqueeze(-1),
+                ),
+                dim=-1,
+            ),
+        ]
+        a = self.test_set_normalized
+        # Change number of workers according to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(
+            TensorDataset(*self.train_set_normalized),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.val_loader = DataLoader(
+            TensorDataset(*self.validation_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+        self.test_loader = DataLoader(
+            TensorDataset(*self.test_set_normalized),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            generator=g,
+        )
+
+
+#
 # ------------------------------------------------------------------------------
 # Navier-Stokes data (from Mishra CNO article)
 #   From 0 to 750 : training samples (750)

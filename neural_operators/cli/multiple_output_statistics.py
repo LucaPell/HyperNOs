@@ -377,7 +377,10 @@ if which_example in ["fhn", "hh", "ord"]:
     test_rel_h1_componentwise = H1relLoss_1D_multiout(1.0, None)(
         output_tensor, prediction_tensor
     )
-    print(test_rel_l1_componentwise.size())
+    train_rel_l2_componentwise = LprelLoss_multiout(2, None)(
+        train_output_tensor, train_prediction_tensor
+    )
+    print(test_rel_l1_componentwise.size(), train_rel_l2_componentwise.size())
 
 
 #########################################
@@ -636,6 +639,7 @@ if which_example == "fhn":
         ["V", "w"],
     )
     np.save("test_err_fhn.npy", test_rel_l2_componentwise.cpu())
+    # np.save("train_err_fhn.npy", train_rel_l2_componentwise.cpu())
 
 elif which_example == "hh":
     plot_boxplot(

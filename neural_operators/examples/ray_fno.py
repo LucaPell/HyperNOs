@@ -31,7 +31,7 @@ def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
         "learning_rate": tune.quniform(1e-4, 1e-2, 1e-5),
         "weight_decay": tune.quniform(1e-6, 1e-3, 1e-6),
         "scheduler_gamma": tune.quniform(0.75, 0.99, 0.01),
-        "width": tune.choice([4, 8, 16, 32, 64, 96, 128, 160, 192]),
+        "width": tune.choice([4, 8, 16, 32, 64, 96, 128, 160, 192, 220]),
         "n_layers": tune.randint(1, 6),
         "modes": tune.choice([2, 4, 8, 12, 16, 20, 24, 28, 32]),  # modes1 = modes2
         "fun_act": tune.choice(["tanh", "relu", "gelu", "leaky_relu"]),
@@ -101,10 +101,10 @@ def ray_fno(which_example: str, mode_hyperparams: str, loss_fn_str: str):
         dataset_builder,
         loss_fn,
         default_hyper_params,
-        runs_per_cpu=8.0,
+        runs_per_cpu=1.0,
         runs_per_gpu=0.5,
     )
 
 
 if __name__ == "__main__":
-    ray_fno("cont_tran", "default", "L1")
+    ray_fno("Helmotz_1D", "default", "L1")

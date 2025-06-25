@@ -68,7 +68,7 @@ import numpy as np
 # default values
 #########################################
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+# device = torch.device("cpu")
 print("Device: ", device)
 # torch.set_default_dtype(torch.float32) # default tensor dtype
 
@@ -352,11 +352,11 @@ print("")
     prediction_tensor,
 ) = get_tensors(model, test_loader, device)
 
-# (
-#     train_input_tensor,
-#     train_output_tensor,
-#     train_prediction_tensor,
-# ) = get_tensors(model, train_loader, device)
+(
+    train_input_tensor,
+    train_output_tensor,
+    train_prediction_tensor,
+) = get_tensors(model, train_loader, device)
 
 (
     train_relative_l1_tensor,
@@ -370,25 +370,26 @@ print("")
 # Compute mean error and print it
 #########################################
 # Error tensors
-# train_relative_l1_tensor = LprelLoss(1, None)(
-#     train_output_tensor, train_prediction_tensor
-# )
+train_relative_l1_tensor = LprelLoss(1, None)(
+    train_output_tensor, train_prediction_tensor
+)
 test_relative_l1_tensor = LprelLoss(1, None)(output_tensor, prediction_tensor)
 
-# train_relative_l2_tensor = LprelLoss(2, None)(
-#     train_output_tensor, train_prediction_tensor
-# )
+train_relative_l2_tensor = LprelLoss(2, None)(
+    train_output_tensor, train_prediction_tensor
+)
 test_relative_l2_tensor = LprelLoss(2, None)(output_tensor, prediction_tensor)
 
 # np.save("ord_best_500k_train_err_L2.npy", train_relative_l2_tensor.cpu())
 # np.save("ord_best_500k__test_err_L2.npy", test_relative_l2_tensor.cpu())
+
 
 if problem_dim == 1:
     # train_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
     #     train_output_tensor, train_prediction_tensor
     # )
     # train_relative_h1_tensor = H1relLoss_1D(1.0, None)(
-    #     train_output_tensor, train_prediction_tensor
+    #     train_outputt _tensor, train_prediction_tensor
     # )
 
     test_relative_semih1_tensor = H1relLoss_1D(1.0, None, 0.0)(
@@ -449,6 +450,9 @@ if which_example in ["fhn", "hh", "ord"]:
     test_rel_h1_componentwise = H1relLoss_1D_multiout(1.0, True)(
         output_tensor, prediction_tensor
     )
+    train_rel_l2_componentwise = LprelLoss_multiout(2, None)(
+        train_output_tensor, train_prediction_tensor
+    )  # values of the error in a componetwise manner
     # print the mean error component-wise
     print("Test mean relative l1 norm componentwise: ", test_rel_l1_componentwise)
     print("Test mean relative l2 norm componentwise: ", test_rel_l2_componentwise)
@@ -457,6 +461,10 @@ if which_example in ["fhn", "hh", "ord"]:
     )
     print("Test mean relative h1 norm componentwise: ", test_rel_h1_componentwise)
     print("")
+    # save the componentwise error for the train
+    # np.save("fhn_train_rel_l2_componedefaultntwise.npy", train_rel_l2_componentwise.cpu())
+    # np.save("hh_train_rel_l2_componentwise.npy", train_rel_l2_componentwise.cpu())
+    # np.save("ord_train_rel_l2_componentwise.npy", train_rel_l2_componentwise.cpu())
 
 elif which_example in ["crosstruss"]:
     test_rel_l1_componentwise = LprelLoss_multiout(1, True)(
@@ -891,7 +899,7 @@ test_plot_samples(
     output_tensor,
     prediction_tensor,
     test_relative_l1_tensor,
-    "random",
+    "worst",
     which_example,
     ntest=100,
     str_norm=loss_fn_str,

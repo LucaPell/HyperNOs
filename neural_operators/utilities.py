@@ -706,6 +706,82 @@ def plot_data_FHN_1D_diff(
 
 
 #########################################
+# Function to plot the data for the Helmotz 1D
+#########################################
+def plot_data_Helmotz_1D_input(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    print(np.shape(data_plot))
+    if normalization:
+        data_plot[:, :, 0] = example.k_normalizer.decode(data_plot[:, :, 0])
+        data_plot[:, :, 1] = example.f_normalizer.decode(data_plot[:, :, 1])
+
+    plot_data_generic_1d(
+        data_plot[..., 0],
+        1,
+        title + " k(x)",
+        "k(x)",
+        ep,
+        writer,
+        plotting,
+    )
+    plot_data_generic_1d(
+        data_plot[..., 1],
+        1,
+        title + "f(x)",
+        "f(x)",
+        ep,
+        writer,
+        plotting,
+    )
+    # additive_title = ["k", "f"]
+    # for idx in range(data_plot.size(-1)):
+    #     n_idx = data_plot.size(0)
+    #     fig, ax = plt.subplots(1, n_idx, figsize=(18, 4))
+    #     fig.suptitle(title + additive_title[idx])
+    #     ax[0].set(ylabel="x")
+    #     # limits = [0, 1, 0, 40]
+    #     for i in range(n_idx):
+    #         ax[i].set_yticklabels([])
+    #         ax[i].set_xticklabels([])
+    #         ax[i].set(xlabel="x")
+    #         im = ax[i].imshow(data_plot[i, :, idx], aspect="auto")
+    #         fig.colorbar(im, ax=ax[i])
+    #     if plotting:
+    #         plt.show()
+    #     # save the plot on tensorboard
+    #     writer.add_figure(title + additive_title[idx], fig, ep)
+
+
+def plot_data_Helmotz_1D(
+    example,
+    data_plot: Tensor,
+    title: str,
+    ep: int,
+    writer: SummaryWriter,
+    normalization: bool = True,
+    plotting: bool = False,
+):
+    if normalization:
+        data_plot[:, :, 0] = example.u_normalizer.decode(data_plot[:, :, 0])
+    plot_data_generic_1d(
+        data_plot[..., 0],
+        1,
+        title + " u(x)",
+        "u(x)",
+        ep,
+        writer,
+        plotting,
+    )
+
+
+#########################################
 # Function to plot the data for all the Mishra's example
 #########################################
 def plot_data_diffusion_input(
@@ -923,11 +999,14 @@ def get_plot_function(
             if "input" in title.lower():
                 return plot_data_HH_1D_input
             return plot_data_HH_1D
-
         case "fhn_1d_diff":
             if "input" in title.lower():
                 return plot_data_FHN_1D_diff_input
             return plot_data_FHN_1D_diff
+        case "Helmotz_1D":
+            if "input" in title.lower():
+                return plot_data_Helmotz_1D_input
+            return plot_data_Helmotz_1D
 
     if which_example in [
         "poisson",
